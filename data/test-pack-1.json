@@ -1,0 +1,244 @@
+{
+  "id": 1,
+  "title": "Test Oficial Permiso B - Pack 1",
+  "description": "Preguntas oficiales sobre señalización y normas de circulación",
+  "questions": [
+    {
+      "id": 1,
+      "question": "¿Qué indica esta señal de tráfico?",
+      "image": "/placeholder.svg?height=120&width=120",
+      "options": ["Prohibido el paso", "Detención obligatoria", "Ceda el paso", "Velocidad máxima"],
+      "correctAnswer": 1
+    },
+    {
+      "id": 2,
+      "question": "En una vía urbana sin señalizar, ¿cuál es la velocidad máxima permitida?",
+      "options": ["30 km/h", "40 km/h", "50 km/h", "60 km/h"],
+      "correctAnswer": 2
+    },
+    {
+      "id": 3,
+      "question": "¿Cuándo es obligatorio el uso del cinturón de seguridad?",
+      "options": ["Solo en autopistas", "Solo en ciudad", "Siempre que se circule", "Solo a más de 50 km/h"],
+      "correctAnswer": 2
+    },
+    {
+      "id": 4,
+      "question": "¿Qué significa una línea continua en la calzada?",
+      "options": ["Se puede adelantar", "Prohibido adelantar", "Carril de aceleración", "Zona de estacionamiento"],
+      "correctAnswer": 1
+    },
+    {
+      "id": 5,
+      "question": "¿A qué distancia mínima debe seguir a otro vehículo en autopista?",
+      "options": ["50 metros", "100 metros", "150 metros", "Depende de la velocidad"],
+      "correctAnswer": 3
+    },
+    {
+      "id": 6,
+      "question": "¿Cuál es la tasa máxima de alcohol permitida para conductores noveles?",
+      "options": ["0,0 mg/l", "0,15 mg/l", "0,25 mg/l", "0,50 mg/l"],
+      "correctAnswer": 1
+    },
+    {
+      "id": 7,
+      "question": "¿Qué indica un semáforo en ámbar intermitente?",
+      "options": ["Detención obligatoria", "Precaución, ceda el paso", "Vía libre", "Prohibido el paso"],
+      "correctAnswer": 1
+    },
+    {
+      "id": 8,
+      "question": "¿Cuándo debe encender las luces de cruce?",
+      "options": [
+        "Solo de noche",
+        "En túneles y condiciones de poca visibilidad",
+        "Solo cuando llueve",
+        "Solo en autopistas"
+      ],
+      "correctAnswer": 1
+    },
+    {
+      "id": 9,
+      "question": "¿Qué vehículos tienen prioridad en un paso de peatones?",
+      "options": [
+        "Los vehículos que circulan por la derecha",
+        "Los peatones siempre",
+        "Los vehículos de mayor tamaño",
+        "Depende de la señalización"
+      ],
+      "correctAnswer": 1
+    },
+    {
+      "id": 10,
+      "question": "¿Cuál es la distancia mínima para adelantar en carretera?",
+      "options": ["100 metros", "200 metros", "500 metros", "Depende de la velocidad"],
+      "correctAnswer": 1
+    },
+    {
+      "id": 11,
+      "question": "¿Qué indica esta señal?",
+      "image": "/placeholder.svg?height=120&width=120",
+      "options": ["Peligro genérico", "Obras en la vía", "Curva peligrosa", "Intersección"],
+      "correctAnswer": 0
+    },
+    {
+      "id": 12,
+      "question": "¿Cuándo es obligatorio usar el casco en motocicleta?",
+      "options": ["Solo en autopistas", "Solo en ciudad", "Siempre", "Solo a más de 50 km/h"],
+      "correctAnswer": 2
+    },
+    {
+      "id": 13,
+      "question": "¿Qué debe hacer ante una ambulancia con sirena?",
+      "options": [
+        "Acelerar para apartarse",
+        "Detenerse inmediatamente",
+        "Facilitar el paso de forma segura",
+        "Continuar normalmente"
+      ],
+      "correctAnswer": 2
+    },
+    {
+      "id": 14,
+      "question": "¿Cuál es el límite de velocidad en autopistas para turismos?",
+      "options": ["100 km/h", "110 km/h", "120 km/h", "130 km/h"],
+      "correctAnswer": 2
+    },
+    {
+      "id": 15,
+      "question": "¿Qué significa una señal circular con fondo azul?",
+      "options": ["Prohibición", "Obligación", "Peligro", "Información"],
+      "correctAnswer": 1
+    },
+    {
+      "id": 16,
+      "question": "¿Cuándo debe usar las luces antiniebla traseras?",
+      "options": [
+        "Siempre que llueva",
+        "Solo de noche",
+        "Cuando la visibilidad sea inferior a 50 metros",
+        "En todas las condiciones adversas"
+      ],
+      "correctAnswer": 2
+    },
+    {
+      "id": 17,
+      "question": "¿Qué vehículos pueden circular por el carril VAO?",
+      "options": ["Solo autobuses", "Vehículos con 2 o más ocupantes", "Solo taxis", "Vehículos eléctricos únicamente"],
+      "correctAnswer": 1
+    },
+    {
+      "id": 18,
+      "question": "¿Cuál es la edad mínima para obtener el permiso B?",
+      "options": ["16 años", "17 años", "18 años", "21 años"],
+      "correctAnswer": 2
+    },
+    {
+      "id": 19,
+      "question": "¿Qué indica una línea discontinua en la calzada?",
+      "options": [
+        "Prohibido adelantar",
+        "Adelantamiento permitido con precaución",
+        "Carril de emergencia",
+        "Zona de estacionamiento"
+      ],
+      "correctAnswer": 1
+    },
+    {
+      "id": 20,
+      "question": "¿Cuándo es obligatorio llevar chaleco reflectante?",
+      "options": [
+        "Siempre en el vehículo",
+        "Solo de noche",
+        "Al salir del vehículo en vías interurbanas",
+        "Solo en autopistas"
+      ],
+      "correctAnswer": 2
+    },
+    {
+      "id": 21,
+      "question": "¿Qué distancia de seguridad debe mantener en ciudad?",
+      "options": [
+        "1 metro por cada 10 km/h",
+        "3 segundos de distancia",
+        "50 metros mínimo",
+        "La que permita detenerse con seguridad"
+      ],
+      "correctAnswer": 3
+    },
+    {
+      "id": 22,
+      "question": "¿Cuándo debe usar las luces de posición?",
+      "options": ["Solo de noche", "Al amanecer y anochecer", "Solo cuando llueve", "Nunca son obligatorias"],
+      "correctAnswer": 1
+    },
+    {
+      "id": 23,
+      "question": "¿Qué indica un semáforo con flecha verde?",
+      "options": ["Prohibido girar", "Giro permitido en esa dirección", "Precaución al girar", "Solo para peatones"],
+      "correctAnswer": 1
+    },
+    {
+      "id": 24,
+      "question": "¿Cuál es el límite de velocidad en travesías?",
+      "options": ["30 km/h", "40 km/h", "50 km/h", "60 km/h"],
+      "correctAnswer": 2
+    },
+    {
+      "id": 25,
+      "question": "¿Qué debe hacer si se le avería el vehículo en autopista?",
+      "options": [
+        "Detenerse en el carril derecho",
+        "Salir por el lado izquierdo",
+        "Colocar los triángulos y salir por la derecha",
+        "Llamar desde dentro del vehículo"
+      ],
+      "correctAnswer": 2
+    },
+    {
+      "id": 26,
+      "question": "¿Cuándo es obligatorio el uso de neumáticos de invierno?",
+      "options": [
+        "Del 1 de noviembre al 15 de marzo",
+        "Solo cuando nieva",
+        "Cuando lo indique la señalización",
+        "Nunca son obligatorios en España"
+      ],
+      "correctAnswer": 2
+    },
+    {
+      "id": 27,
+      "question": "¿Qué significa una señal octogonal roja?",
+      "options": ["Ceda el paso", "Prohibido el paso", "Stop - detención obligatoria", "Peligro"],
+      "correctAnswer": 2
+    },
+    {
+      "id": 28,
+      "question": "¿Cuál es la presión recomendada para los neumáticos?",
+      "options": [
+        "La que indique el fabricante del vehículo",
+        "Siempre 2,5 bares",
+        "Depende del clima",
+        "La máxima indicada en el neumático"
+      ],
+      "correctAnswer": 0
+    },
+    {
+      "id": 29,
+      "question": "¿Qué vehículos tienen prioridad en una rotonda?",
+      "options": [
+        "Los que entran",
+        "Los que ya están circulando",
+        "Los de mayor tamaño",
+        "Los que vienen por la derecha"
+      ],
+      "correctAnswer": 1
+    },
+    {
+      "id": 30,
+      "question": "¿Cuándo debe renovar el permiso de conducir clase B?",
+      "options": ["Cada 5 años hasta los 65", "Cada 10 años hasta los 65", "Cada 15 años", "No es necesario renovarlo"],
+      "correctAnswer": 1
+    }
+  ]
+}

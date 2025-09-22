@@ -5,6 +5,18 @@ export type SupabaseConfig = {
 
 const missingConfigWarnings = new Set<string>()
 
+
+function readBrowserEnv(key: string): string {
+  if (typeof window === "undefined") return ""
+  try {
+    // @ts-ignore
+    const v = window.__env?.[key]
+    return typeof v === "string" ? v.trim() : ""
+  } catch {
+    return ""
+  }
+}
+
 function normalizeEnvValue(value: string | undefined) {
   if (!value) {
     return ""
@@ -21,9 +33,9 @@ function normalizeEnvValue(value: string | undefined) {
 
 export function getSupabaseConfig(): SupabaseConfig | null {
   const url =
-    normalizeEnvValue(process.env.NEXT_PUBLIC_SUPABASE_URL ?? process.env.SUPABASE_URL)
+    normalizeEnvValue(process.env.NEXT_PUBLIC_SUPABASE_URL ?? process.env.SUPABASE_URL) || readBrowserEnv('NEXT_PUBLIC_SUPABASE_URL')
   const anonKey =
-    normalizeEnvValue(process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ?? process.env.SUPABASE_ANON_KEY)
+    normalizeEnvValue(process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ?? process.env.SUPABASE_ANON_KEY) || readBrowserEnv('NEXT_PUBLIC_SUPABASE_ANON_KEY')
 
   if (!url || !anonKey) {
     return null

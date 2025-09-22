@@ -1,10 +1,19 @@
 import { createServerClient } from "@supabase/ssr"
+import type { SupabaseClient } from "@supabase/supabase-js"
 import { cookies } from "next/headers"
+import { getSupabaseConfig, warnMissingSupabaseConfig } from "./config"
 
-export async function createClient() {
+export async function createClient(): Promise<SupabaseClient | null> {
+  const config = getSupabaseConfig()
+
+  if (!config) {
+    warnMissingSupabaseConfig("Server components cannot access Supabase until the environment variables are provided.")
+    return null
+  }
+
   const cookieStore = await cookies()
 
-  return createServerClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!, {
+  return createServerClient(config.url, config.anonKey, {
     cookies: {
       getAll() {
         return cookieStore.getAll()

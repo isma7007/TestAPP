@@ -3,6 +3,7 @@
 import type React from "react"
 
 import { createClient } from "@/lib/supabase/client"
+import { SupabaseConfigWarning } from "@/components/supabase-config-warning"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
@@ -20,10 +21,16 @@ export default function RegisterPage() {
   const [error, setError] = useState<string | null>(null)
   const [isLoading, setIsLoading] = useState(false)
   const router = useRouter()
+  const supabase = createClient()
+
+  if (!supabase) {
+    return (
+      <SupabaseConfigWarning context="El registro de nuevos usuarios depende de Supabase; configura las variables de entorno para continuar." />
+    )
+  }
 
   const handleRegister = async (e: React.FormEvent) => {
     e.preventDefault()
-    const supabase = createClient()
     setIsLoading(true)
     setError(null)
 

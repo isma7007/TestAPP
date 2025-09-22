@@ -1,5 +1,6 @@
 import { redirect } from "next/navigation"
 import { createClient } from "@/lib/supabase/server"
+import { SupabaseConfigWarning } from "@/components/supabase-config-warning"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
@@ -18,6 +19,12 @@ interface TestResult {
 
 export default async function CategoryPage({ params }: { params: { category: string } }) {
   const supabase = await createClient()
+
+  if (!supabase) {
+    return (
+      <SupabaseConfigWarning context="Las categorías y resultados de tus tests requieren una conexión a Supabase para mostrarse." />
+    )
+  }
 
   const {
     data: { user },

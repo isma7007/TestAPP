@@ -1,5 +1,6 @@
 import { redirect } from "next/navigation"
 import { createClient } from "@/lib/supabase/server"
+import { SupabaseConfigWarning } from "@/components/supabase-config-warning"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
@@ -53,6 +54,12 @@ interface UserGamification {
 export default async function DashboardPage() {
   const supabase = await createClient()
 
+  if (!supabase) {
+    return (
+      <SupabaseConfigWarning context="El panel de control necesita una conexión activa con Supabase para cargar tus datos y estadísticas." />
+    )
+  }
+
   const {
     data: { user },
     error,
@@ -94,8 +101,13 @@ export default async function DashboardPage() {
 
   const handleSignOut = async () => {
     "use server"
-    const supabase = await createClient()
-    await supabase.auth.signOut()
+    const supabaseClient = await createClient()
+
+    if (!supabaseClient) {
+      redirect("/")
+    }
+
+    await supabaseClient.auth.signOut()
     redirect("/")
   }
 

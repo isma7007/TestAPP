@@ -1,7 +1,28 @@
-import { createServerClient } from "@supabase/ssr"
 import { NextResponse, type NextRequest } from "next/server"
 
 import { getSupabaseConfig, warnMissingSupabaseConfig } from "./config"
+
+type CreateServerClient = typeof import("@supabase/ssr") extends {
+  createServerClient: infer T
+}
+  ? T
+  : never
+
+let createServerClientFactory: Promise<CreateServerClient> | null = null
+
+async function loadServerClientFactory() {
+  if (!createServerClientFactory) {
+    createServerClientFactory = import("@supabase/ssr").then(
+      (mod) => mod.createServerClient,
+      (error) => {
+        createServerClientFactory = null
+        throw error
+      },
+    )
+  }
+
+  return createServerClientFactory
+}
 
 function logMiddlewareIssue(error: unknown) {
   if (process.env.NODE_ENV === "production") {
@@ -24,6 +45,15 @@ export async function updateSession(request: NextRequest) {
   }
 
   try {
+    const createServerClient = await loadServerClientFactory().catch((error) => {
+      logMiddlewareIssue(error)
+      return null
+    })
+
+    if (!createServerClient) {
+      return supabaseResponse
+    }
+
     const supabase = createServerClient(config.url, config.anonKey, {
       cookies: {
         getAll() {

@@ -20,12 +20,10 @@ function normalizeEnvValue(value: string | undefined) {
 }
 
 export function getSupabaseConfig(): SupabaseConfig | null {
-  const url = normalizeEnvValue(
-    process.env.NEXT_PUBLIC_SUPABASE_URL ?? process.env.SUPABASE_URL,
-  )
-  const anonKey = normalizeEnvValue(
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ?? process.env.SUPABASE_ANON_KEY,
-  )
+  const url =
+    normalizeEnvValue(process.env.NEXT_PUBLIC_SUPABASE_URL ?? process.env.SUPABASE_URL)
+  const anonKey =
+    normalizeEnvValue(process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ?? process.env.SUPABASE_ANON_KEY)
 
   if (!url || !anonKey) {
     return null

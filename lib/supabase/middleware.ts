@@ -1,5 +1,4 @@
 import { NextResponse, type NextRequest } from "next/server"
-
 import { getSupabaseConfig, warnMissingSupabaseConfig } from "./config"
 import { getSupabaseServerClientFactory } from "./factory"
 
@@ -57,7 +56,9 @@ export async function updateSession(request: NextRequest) {
             const setCookie = request.cookies.set?.bind(request.cookies)
 
             if (setCookie) {
-              cookiesToSet.forEach(({ name, value, options }) => setCookie(name, value, options))
+              cookiesToSet.forEach(({ name, value, options }) =>
+                setCookie(name, value, options),
+              )
             }
 
             supabaseResponse = NextResponse.next({

@@ -9,8 +9,9 @@ export function createClient(): SupabaseClient | null {
   const config = getSupabaseConfig()
 
   if (!config) {
+    // Mostramos advertencia clara y evitamos romper la app
     warnMissingSupabaseConfig(
-      "Authentication features are disabled in the browser until Supabase is configured.",
+      "Supabase environment variables are not configured. Please set NEXT_PUBLIC_SUPABASE_URL and NEXT_PUBLIC_SUPABASE_ANON_KEY.",
     )
     return null
   }

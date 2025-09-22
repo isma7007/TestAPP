@@ -1,0 +1,3 @@
+-- Insert test user (this will be handled by auth, but we'll create the profile)
+-- The actual user creation will be done through the auth system
+-- This script just ensures we have the profile structure ready

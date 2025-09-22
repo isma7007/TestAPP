@@ -1,0 +1,42 @@
+{
+  "id": 1,
+  "category": "A1",
+  "title": "Test 1 - Motocicletas A1 - Normativa básica",
+  "questions": [
+    {
+      "id": 1,
+      "question": "¿Cuál es la cilindrada máxima permitida para el permiso A1?",
+      "options": ["50 cc", "125 cc", "250 cc", "500 cc"],
+      "correct": 1,
+      "explanation": "El permiso A1 permite conducir motocicletas de hasta 125 cc y 11 kW de potencia."
+    },
+    {
+      "id": 2,
+      "question": "¿Cuál es la potencia máxima permitida para motocicletas A1?",
+      "options": ["8 kW", "11 kW", "15 kW", "25 kW"],
+      "correct": 1,
+      "explanation": "Las motocicletas A1 no pueden superar los 11 kW de potencia."
+    },
+    {
+      "id": 3,
+      "question": "¿Es obligatorio llevar casco en motocicleta?",
+      "options": ["Solo en carretera", "Solo a más de 50 km/h", "Siempre", "Solo en autopista"],
+      "correct": 2,
+      "explanation": "El casco es obligatorio siempre al conducir motocicleta, tanto en ciudad como en carretera."
+    },
+    {
+      "id": 4,
+      "question": "¿Cuándo deben llevar las luces encendidas las motocicletas?",
+      "options": ["Solo de noche", "Solo con niebla", "Siempre durante la circulación", "Solo en túneles"],
+      "correct": 2,
+      "explanation": "Las motocicletas deben circular siempre con las luces encendidas, tanto de día como de noche."
+    },
+    {
+      "id": 5,
+      "question": "¿Cuál es la edad mínima para obtener el permiso A1?",
+      "options": ["14 años", "15 años", "16 años", "18 años"],
+      "correct": 2,
+      "explanation": "La edad mínima para obtener el permiso A1 es de 16 años."
+    }
+  ]
+}

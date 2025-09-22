@@ -1,0 +1,277 @@
+{
+  "id": "test1",
+  "title": "Test de práctica 1",
+  "category": "B",
+  "questions": [
+    {
+      "question": "¿Cuál es la velocidad máxima en autopista para turismos?",
+      "options": ["100 km/h", "120 km/h", "90 km/h", "110 km/h"],
+      "answer": "120 km/h"
+    },
+    {
+      "question": "¿Qué significa una señal triangular con borde rojo y un coche en el interior?",
+      "options": ["Fin de prohibiciones", "Peligro por circulación", "Señal de stop", "Velocidad recomendada"],
+      "answer": "Peligro por circulación"
+    },
+    {
+      "question": "¿Cuándo es obligatorio encender las luces de cruce durante el día?",
+      "options": [
+        "Solo cuando llueve",
+        "En túneles, carriles reversibles y condiciones de baja visibilidad",
+        "Nunca",
+        "Solo en autopistas"
+      ],
+      "answer": "En túneles, carriles reversibles y condiciones de baja visibilidad"
+    },
+    {
+      "question": "¿Cuál es la tasa máxima de alcohol permitida para un conductor novel?",
+      "options": ["0,3 g/l en sangre o 0,15 mg/l en aire", "0,5 g/l en sangre", "0,25 mg/l en aire", "0,0 siempre"],
+      "answer": "0,3 g/l en sangre o 0,15 mg/l en aire"
+    },
+    {
+      "question": "¿Qué debes hacer si ves una luz amarilla intermitente en un semáforo?",
+      "options": [
+        "Detenerte obligatoriamente",
+        "Pasar rápidamente",
+        "Pasar con precaución y respetar las normas de prioridad",
+        "Ignorar la señal"
+      ],
+      "answer": "Pasar con precaución y respetar las normas de prioridad"
+    },
+    {
+      "question": "¿En qué caso está permitido usar el carril bus?",
+      "options": [
+        "Cuando hay tráfico intenso",
+        "Para adelantar",
+        "En ningún caso salvo señalización específica o emergencia",
+        "Para motocicletas siempre"
+      ],
+      "answer": "En ningún caso salvo señalización específica o emergencia"
+    },
+    {
+      "question": "¿Qué indica una línea continua en el centro de la calzada?",
+      "options": [
+        "Prohibido adelantar",
+        "Se puede adelantar con precaución",
+        "Carril bus",
+        "Zona de obras"
+      ],
+      "answer": "Prohibido adelantar"
+    },
+    {
+      "question": "¿Qué debes hacer si tu vehículo comienza a patinar sobre el asfalto mojado?",
+      "options": [
+        "Acelerar fuerte para recuperar tracción",
+        "Frenar bruscamente",
+        "Girar en sentido contrario al derrape y soltar el acelerador",
+        "Poner el freno de mano"
+      ],
+      "answer": "Girar en sentido contrario al derrape y soltar el acelerador"
+    },
+    {
+      "question": "¿Cuál es la distancia mínima de seguridad en ciudad?",
+      "options": [
+        "Al menos la que permita detenerse sin colisionar",
+        "10 metros siempre",
+        "50 metros siempre",
+        "No hay normativa en ciudad"
+      ],
+      "answer": "Al menos la que permita detenerse sin colisionar"
+    },
+    {
+      "question": "¿Qué debe llevar siempre un vehículo para circular?",
+      "options": [
+        "Rueda de repuesto y herramientas",
+        "Dos chalecos reflectantes y dos triángulos de emergencia",
+        "Documentación del vehículo y permiso de conducción",
+        "Extintor"
+      ],
+      "answer": "Documentación del vehículo y permiso de conducción"
+    },
+    {
+      "question": "¿Qué significa una señal de fondo azul con una flecha blanca hacia adelante?",
+      "options": [
+        "Prohibido continuar",
+        "Obligación de continuar recto",
+        "Preferencia de paso",
+        "Carretera principal"
+      ],
+      "answer": "Obligación de continuar recto"
+    },
+    {
+      "question": "¿Qué debes hacer al aproximarte a un paso de peatones sin semáforo y con personas esperando?",
+      "options": [
+        "Tocar el claxon",
+        "Reducir la velocidad y ceder el paso",
+        "Pasar rápidamente",
+        "Seguir sin detenerse"
+      ],
+      "answer": "Reducir la velocidad y ceder el paso"
+    },
+    {
+      "question": "¿Cuál es la velocidad máxima en carretera convencional para turismos?",
+      "options": ["90 km/h", "100 km/h", "80 km/h", "120 km/h"],
+      "answer": "90 km/h"
+    },
+    {
+      "question": "¿Qué indica una señal circular con borde rojo y un número en el centro?",
+      "options": [
+        "Velocidad mínima",
+        "Velocidad máxima permitida",
+        "Recomendación de velocidad",
+        "Fin de limitación"
+      ],
+      "answer": "Velocidad máxima permitida"
+    },
+    {
+      "question": "¿Qué significa una línea discontinua en el centro de la calzada?",
+      "options": [
+        "Se puede adelantar si es seguro",
+        "Está prohibido adelantar",
+        "Carril reservado",
+        "Zona de obras"
+      ],
+      "answer": "Se puede adelantar si es seguro"
+    },
+    {
+      "question": "¿Qué debes hacer si una ambulancia circula con señales acústicas y luminosas?",
+      "options": [
+        "Detenerse siempre",
+        "Facilitarle el paso cediendo la prioridad",
+        "Ignorarla",
+        "Seguir delante sin apartarse"
+      ],
+      "answer": "Facilitarle el paso cediendo la prioridad"
+    },
+    {
+      "question": "¿Qué equipo es obligatorio llevar en el coche además de la documentación?",
+      "options": [
+        "Un extintor",
+        "Chaleco reflectante y triángulos de emergencia",
+        "Botiquín",
+        "Linterna"
+      ],
+      "answer": "Chaleco reflectante y triángulos de emergencia"
+    },
+    {
+      "question": "¿Qué debes hacer si pinchas una rueda en autopista?",
+      "options": [
+        "Seguir hasta la siguiente salida",
+        "Detenerte en el arcén, señalizar con triángulos y usar chaleco",
+        "Frenar bruscamente",
+        "Cambiarla en medio del carril"
+      ],
+      "answer": "Detenerte en el arcén, señalizar con triángulos y usar chaleco"
+    },
+    {
+      "question": "¿Cuál es la velocidad máxima en vías urbanas para turismos?",
+      "options": ["50 km/h", "30 km/h", "40 km/h", "60 km/h"],
+      "answer": "50 km/h"
+    },
+    {
+      "question": "¿Qué significa una señal circular azul con una bicicleta blanca?",
+      "options": [
+        "Prohibido bicicletas",
+        "Carril obligatorio para bicicletas",
+        "Peligro bicicletas",
+        "Vía reservada a turismos"
+      ],
+      "answer": "Carril obligatorio para bicicletas"
+    },
+    {
+      "question": "¿Qué hacer si te aproximas a un cruce sin señalización?",
+      "options": [
+        "Pasar primero siempre",
+        "Respetar la norma general: prioridad del vehículo que viene por la derecha",
+        "Ceder al que viene por la izquierda",
+        "Pasar rápidamente"
+      ],
+      "answer": "Respetar la norma general: prioridad del vehículo que viene por la derecha"
+    },
+    {
+      "question": "¿Qué debes hacer antes de adelantar?",
+      "options": [
+        "Comprobar que puedes hacerlo con seguridad y señalizar",
+        "Acelerar directamente",
+        "Tocar el claxon",
+        "Mirar solo el retrovisor interior"
+      ],
+      "answer": "Comprobar que puedes hacerlo con seguridad y señalizar"
+    },
+    {
+      "question": "¿Qué es el aquaplaning?",
+      "options": [
+        "Pérdida de adherencia por exceso de velocidad en curva",
+        "Pérdida de contacto con el asfalto por acumulación de agua",
+        "Derrape por exceso de carga",
+        "Un sistema de frenado ABS"
+      ],
+      "answer": "Pérdida de contacto con el asfalto por acumulación de agua"
+    },
+    {
+      "question": "¿Cuál es la edad mínima para obtener el permiso B?",
+      "options": ["17 años", "18 años", "21 años", "16 años"],
+      "answer": "18 años"
+    },
+    {
+      "question": "¿Qué significa una señal triangular con un ciervo en su interior?",
+      "options": [
+        "Prohibido cazar",
+        "Peligro por animales en libertad",
+        "Zona de reserva natural",
+        "Paso de ganado doméstico"
+      ],
+      "answer": "Peligro por animales en libertad"
+    },
+    {
+      "question": "¿Qué significa una señal circular blanca con un camión dentro y borde rojo?",
+      "options": [
+        "Prohibido camiones",
+        "Camiones obligados a circular por ese carril",
+        "Peligro camiones",
+        "Velocidad máxima para camiones"
+      ],
+      "answer": "Prohibido camiones"
+    },
+    {
+      "question": "¿Cuál es la velocidad máxima permitida en carreteras secundarias para turismos?",
+      "options": ["100 km/h", "90 km/h", "80 km/h", "70 km/h"],
+      "answer": "90 km/h"
+    },
+    {
+      "question": "¿Qué documento debe llevar siempre el conductor?",
+      "options": [
+        "DNI, permiso de conducción y permiso de circulación",
+        "Solo el DNI",
+        "Solo el permiso de conducción",
+        "La ITV aunque esté caducada"
+      ],
+      "answer": "DNI, permiso de conducción y permiso de circulación"
+    },
+    {
+      "question": "¿Qué debes hacer si un semáforo está en ámbar fijo?",
+      "options": [
+        "Acelerar",
+        "Detenerte salvo que sea peligroso hacerlo",
+        "Seguir sin mirar",
+        "Ignorarlo"
+      ],
+      "answer": "Detenerte salvo que sea peligroso hacerlo"
+    },
+    {
+      "question": "¿Qué significa una señal azul con una P blanca?",
+      "options": ["Prohibido aparcar", "Zona de estacionamiento autorizado", "Parking de pago obligatorio", "Parada de bus"],
+      "answer": "Zona de estacionamiento autorizado"
+    },
+    {
+      "question": "¿Qué debes hacer si circulas de noche y te cruzas con otro vehículo?",
+      "options": [
+        "Encender las largas para ver mejor",
+        "Bajar a luces de cruce para no deslumbrar",
+        "Apagar las luces",
+        "Mantener las largas encendidas"
+      ],
+      "answer": "Bajar a luces de cruce para no deslumbrar"
+    }
+  ]
+}

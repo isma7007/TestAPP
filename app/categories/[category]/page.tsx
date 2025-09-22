@@ -1,26 +1,34 @@
-import fs from "fs"
-import path from "path"
+"use client"
+
+import { useEffect, useState } from "react"
 import Link from "next/link"
 
-export default async function CategoryPage({ params }: { params: { category: string } }) {
-  const testsDir = path.join(process.cwd(), "public", "tests")
+interface TestSummary {
+  id: string
+  title: string
+  category: string
+}
 
-  let tests: any[] = []
+export default function CategoryPage({ params }: { params: { category: string } }) {
+  const [tests, setTests] = useState<TestSummary[]>([])
 
-  try {
-    const files = fs.readdirSync(testsDir)
+  useEffect(() => {
+    async function loadTests() {
+      try {
+        // Leemos el índice desde /public/tests/index.json
+        const res = await fetch("/tests/index.json")
+        const allTests: TestSummary[] = await res.json()
 
-    tests = files
-      .filter((f) => f.endsWith(".json"))
-      .map((f) => {
-        const filePath = path.join(testsDir, f)
-        const content = JSON.parse(fs.readFileSync(filePath, "utf-8"))
-        return content
-      })
-      .filter((t) => t.category === params.category)
-  } catch (error) {
-    console.error("Error loading tests:", error)
-  }
+        // Filtramos por categoría
+        const filtered = allTests.filter((t) => t.category === params.category)
+        setTests(filtered)
+      } catch (error) {
+        console.error("Error cargando índice de tests:", error)
+      }
+    }
+
+    loadTests()
+  }, [params.category])
 
   return (
     <div className="p-6">

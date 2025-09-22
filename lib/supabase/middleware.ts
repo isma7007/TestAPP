@@ -1,35 +1,31 @@
 import { NextResponse, type NextRequest } from "next/server"
 
 import { getSupabaseConfig, warnMissingSupabaseConfig } from "./config"
+import { getSupabaseServerClientFactory } from "./factory"
 
-type CreateServerClient = typeof import("@supabase/ssr") extends {
-  createServerClient: infer T
-}
-  ? T
-  : never
+const middlewareWarnings = new Set<string>()
 
-let createServerClientFactory: Promise<CreateServerClient> | null = null
-
-async function loadServerClientFactory() {
-  if (!createServerClientFactory) {
-    createServerClientFactory = import("@supabase/ssr").then(
-      (mod) => mod.createServerClient,
-      (error) => {
-        createServerClientFactory = null
-        throw error
-      },
-    )
-  }
-
-  return createServerClientFactory
-}
-
-function logMiddlewareIssue(error: unknown) {
+function logMiddlewareIssue(context: string, error: unknown) {
   if (process.env.NODE_ENV === "production") {
     return
   }
 
-  console.error("Supabase middleware session refresh failed:", error)
+  const key = context.trim().toLowerCase() || "unknown"
+
+  if (middlewareWarnings.has(key)) {
+    return
+  }
+
+  middlewareWarnings.add(key)
+
+  const details =
+    error instanceof Error
+      ? `${error.name}: ${error.message}`
+      : typeof error === "string"
+        ? error
+        : "Unknown error"
+
+  console.warn(`Supabase middleware ${context}. (${details})`)
 }
 
 export async function updateSession(request: NextRequest) {
@@ -44,17 +40,14 @@ export async function updateSession(request: NextRequest) {
     return supabaseResponse
   }
 
+  const factory = await getSupabaseServerClientFactory("middleware")
+
+  if (!factory) {
+    return supabaseResponse
+  }
+
   try {
-    const createServerClient = await loadServerClientFactory().catch((error) => {
-      logMiddlewareIssue(error)
-      return null
-    })
-
-    if (!createServerClient) {
-      return supabaseResponse
-    }
-
-    const supabase = createServerClient(config.url, config.anonKey, {
+    const supabase = factory(config.url, config.anonKey, {
       cookies: {
         getAll() {
           return request.cookies.getAll()
@@ -64,9 +57,7 @@ export async function updateSession(request: NextRequest) {
             const setCookie = request.cookies.set?.bind(request.cookies)
 
             if (setCookie) {
-              cookiesToSet.forEach(({ name, value, options }) =>
-                setCookie(name, value, options),
-              )
+              cookiesToSet.forEach(({ name, value, options }) => setCookie(name, value, options))
             }
 
             supabaseResponse = NextResponse.next({
@@ -77,7 +68,7 @@ export async function updateSession(request: NextRequest) {
               supabaseResponse.cookies.set(name, value, options),
             )
           } catch (error) {
-            logMiddlewareIssue(error)
+            logMiddlewareIssue("could not persist refreshed auth cookies", error)
           }
         },
       },
@@ -89,7 +80,7 @@ export async function updateSession(request: NextRequest) {
     } = await supabase.auth.getUser()
 
     if (error) {
-      logMiddlewareIssue(error)
+      logMiddlewareIssue("failed to refresh the Supabase session", error)
       return supabaseResponse
     }
 
@@ -103,7 +94,7 @@ export async function updateSession(request: NextRequest) {
       return NextResponse.redirect(url)
     }
   } catch (error) {
-    logMiddlewareIssue(error)
+    logMiddlewareIssue("encountered an unexpected error", error)
     return supabaseResponse
   }
 

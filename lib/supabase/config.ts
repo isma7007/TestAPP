@@ -1,30 +1,41 @@
-type SupabaseConfig = {
+export type SupabaseConfig = {
   url: string
   anonKey: string
 }
 
+const missingConfigWarnings = new Set<string>()
+
+function normalizeEnvValue(value: string | undefined) {
+  if (!value) {
+    return ""
+  }
+
+  const normalized = value.trim()
+
+  if (!normalized || normalized === "undefined" || normalized === "null") {
+    return ""
+  }
+
+  return normalized
+}
+
 export function getSupabaseConfig(): SupabaseConfig | null {
-  const url =
-    process.env.NEXT_PUBLIC_SUPABASE_URL ?? process.env.SUPABASE_URL ?? ""
-  const anonKey =
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ??
-    process.env.SUPABASE_ANON_KEY ??
-    ""
+  const url = normalizeEnvValue(
+    process.env.NEXT_PUBLIC_SUPABASE_URL ?? process.env.SUPABASE_URL,
+  )
+  const anonKey = normalizeEnvValue(
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ?? process.env.SUPABASE_ANON_KEY,
+  )
 
-  const normalizedUrl = url.trim()
-  const normalizedAnonKey = anonKey.trim()
-
-  if (!normalizedUrl || !normalizedAnonKey) {
+  if (!url || !anonKey) {
     return null
   }
 
   return {
-    url: normalizedUrl,
-    anonKey: normalizedAnonKey,
+    url,
+    anonKey,
   }
 }
-
-const missingConfigWarnings = new Set<string>()
 
 export function warnMissingSupabaseConfig(context: string) {
   if (process.env.NODE_ENV === "production") {
@@ -32,6 +43,7 @@ export function warnMissingSupabaseConfig(context: string) {
   }
 
   const key = context.trim().toLowerCase() || "default"
+
   if (missingConfigWarnings.has(key)) {
     return
   }

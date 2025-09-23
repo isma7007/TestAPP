@@ -36,6 +36,38 @@ const STATUS_PRIORITY: Record<TestStatus["status"], number> = {
   incomplete: 1,
 }
 
+type StatusDisplayConfig = {
+  label: string
+  badgeClassName: string
+  indicatorClassName: string
+  icon: typeof CheckCircle
+  iconClassName: string
+}
+
+const STATUS_DISPLAY: Record<TestStatus["status"], StatusDisplayConfig> = {
+  approved: {
+    label: "Aprobado",
+    badgeClassName: "bg-emerald-100 text-emerald-800 border-emerald-200",
+    indicatorClassName: "bg-emerald-500",
+    icon: CheckCircle,
+    iconClassName: "text-emerald-600",
+  },
+  failed: {
+    label: "Suspendido",
+    badgeClassName: "bg-red-100 text-red-800 border-red-200",
+    indicatorClassName: "bg-red-500",
+    icon: XCircle,
+    iconClassName: "text-red-600",
+  },
+  incomplete: {
+    label: "Pendiente",
+    badgeClassName: "bg-amber-100 text-amber-800 border-amber-200",
+    indicatorClassName: "bg-amber-400",
+    icon: Clock3,
+    iconClassName: "text-amber-500",
+  },
+}
+
 function parseStatusTimestamp(status: TestStatus) {
   const iso = status.updated_at ?? status.completed_at
   if (!iso) return null
@@ -243,7 +275,7 @@ export default function CategoryPage({ params }: { params: { category: string } 
 
   const approvedCount = Object.values(testStatuses).filter((s) => s.status === "approved").length
   const failedCount = Object.values(testStatuses).filter((s) => s.status === "failed").length
-  const incompleteCount = Object.values(testStatuses).filter((s) => s.status === "incomplete").length
+  const pendingCount = Object.values(testStatuses).filter((s) => s.status === "incomplete").length
 
   if (loading) {
     return (
@@ -319,6 +351,8 @@ export default function CategoryPage({ params }: { params: { category: string } 
             <div className="divide-y divide-border">
               {tests.map((test, index) => {
                 const status = testStatuses[test.id]
+                const statusInfo = status ? STATUS_DISPLAY[status.status] : null
+                const StatusIcon = statusInfo?.icon
                 const testNumber = String(index + 1).padStart(3, "0")
 
                 return (
@@ -330,9 +364,14 @@ export default function CategoryPage({ params }: { params: { category: string } 
                       <div className="w-16 h-10 bg-gray-600 text-white rounded flex items-center justify-center font-mono text-sm">
                         {testNumber}
                       </div>
-                      {status?.status === "approved" && <CheckCircle className="w-4 h-4 text-green-600" />}
-                      {status?.status === "failed" && <XCircle className="w-4 h-4 text-red-600" />}
-                      {status?.status === "incomplete" && <Clock3 className="w-4 h-4 text-amber-500" />}
+                      <div
+                        className={`w-3 h-3 rounded-sm ${statusInfo ? statusInfo.indicatorClassName : "bg-muted-foreground/30"}`}
+                        aria-hidden="true"
+                      />
+                      {StatusIcon && statusInfo ? (
+                        <StatusIcon className={`w-4 h-4 ${statusInfo.iconClassName}`} aria-hidden="true" />
+                      ) : null}
+                      <span className="sr-only">{statusInfo ? statusInfo.label : "Sin estado"}</span>
                     </div>
 
                     <div className="text-center">
@@ -348,16 +387,11 @@ export default function CategoryPage({ params }: { params: { category: string } 
                     </div>
 
                     <div className="text-center">
-                      {status?.status === "approved" && (
-                        <Badge className="bg-green-100 text-green-800 border-green-200">Aprobado</Badge>
+                      {statusInfo ? (
+                        <Badge className={statusInfo.badgeClassName}>{statusInfo.label}</Badge>
+                      ) : (
+                        <span className="text-muted-foreground text-sm">No realizado</span>
                       )}
-                      {status?.status === "failed" && (
-                        <Badge className="bg-red-100 text-red-800 border-red-200">Suspendido</Badge>
-                      )}
-                      {status?.status === "incomplete" && (
-                        <Badge className="bg-amber-100 text-amber-800 border-amber-200">Incompleto</Badge>
-                      )}
-                      {!status && <span className="text-muted-foreground text-sm">No realizado</span>}
                     </div>
 
                     <div className="flex items-center justify-between">
@@ -445,8 +479,8 @@ export default function CategoryPage({ params }: { params: { category: string } 
                   <Clock3 className="w-5 h-5 text-amber-500" />
                 </div>
                 <div>
-                  <p className="text-2xl font-bold">{incompleteCount}</p>
-                  <p className="text-sm text-muted-foreground">Incompletos</p>
+                  <p className="text-2xl font-bold">{pendingCount}</p>
+                  <p className="text-sm text-muted-foreground">Pendientes</p>
                 </div>
               </div>
             </CardContent>

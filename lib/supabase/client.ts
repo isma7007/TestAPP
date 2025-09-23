@@ -1,19 +1,33 @@
 import { createBrowserClient } from "@supabase/ssr"
 import type { SupabaseClient } from "@supabase/supabase-js"
 
-import { getSupabaseConfig, warnMissingSupabaseConfig } from "./config"
+import { resolveSupabaseConfig, warnMissingSupabaseConfig } from "./config"
 
 let browserClientFailureLogged = false
+let defaultSupabaseConfigNoticeLogged = false
 
 export function createClient(): SupabaseClient | null {
-  const config = getSupabaseConfig()
+  const resolved = resolveSupabaseConfig()
 
-  if (!config) {
+  if (!resolved) {
     // Mostramos advertencia clara y evitamos romper la app
     warnMissingSupabaseConfig(
       "Supabase environment variables are not configured. Please set NEXT_PUBLIC_SUPABASE_URL and NEXT_PUBLIC_SUPABASE_ANON_KEY.",
     )
     return null
+  }
+
+  const { config, sources } = resolved
+
+  if (
+    (sources.url === "default" || sources.anonKey === "default") &&
+    process.env.NODE_ENV !== "production" &&
+    !defaultSupabaseConfigNoticeLogged
+  ) {
+    console.info(
+      "Using bundled Supabase credentials. Override them by setting NEXT_PUBLIC_SUPABASE_URL and NEXT_PUBLIC_SUPABASE_ANON_KEY.",
+    )
+    defaultSupabaseConfigNoticeLogged = true
   }
 
   try {

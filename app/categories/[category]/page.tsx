@@ -2,6 +2,11 @@
 
 import { useEffect, useState } from "react"
 import Link from "next/link"
+import { Card, CardContent, CardHeader } from "@/components/ui/card"
+import { Badge } from "@/components/ui/badge"
+import { Button } from "@/components/ui/button"
+import { ArrowLeft, BookOpen, CheckCircle, XCircle, Clock3, ChevronRight, ToggleLeft, ToggleRight } from "lucide-react"
+import { createClient } from "@/lib/supabase/client"
 
 interface TestSummary {
   id: string
@@ -9,43 +14,305 @@ interface TestSummary {
   category: string
 }
 
+interface TestStatus {
+  test_id: string
+  status: "approved" | "failed" | "pending"
+  score?: number
+  total_questions?: number
+  current_question?: number
+  completed_at?: string
+}
+
 export default function CategoryPage({ params }: { params: { category: string } }) {
   const [tests, setTests] = useState<TestSummary[]>([])
+  const [testStatuses, setTestStatuses] = useState<Record<string, TestStatus>>({})
+  const [loading, setLoading] = useState(true)
+  const [testMode, setTestMode] = useState<"study" | "exam">("exam")
 
   useEffect(() => {
-    async function loadTests() {
+    async function loadData() {
       try {
-        // Leemos el índice desde /public/tests/index.json
-        const res = await fetch("/tests/index.json")
-        const allTests: TestSummary[] = await res.json()
+        const generatedTests: TestSummary[] = []
+        for (let i = 1; i <= 100; i++) {
+          generatedTests.push({
+            id: `test${i}`,
+            title: `Test ${String(i).padStart(3, "0")}`,
+            category: params.category,
+          })
+        }
+        setTests(generatedTests)
 
-        // Filtramos por categoría
-        const filtered = allTests.filter((t) => t.category === params.category)
-        setTests(filtered)
+        const supabase = createClient()
+        if (supabase) {
+          const {
+            data: { user },
+          } = await supabase.auth.getUser()
+          if (user) {
+            // Load completed tests
+            const { data: results } = await supabase
+              .from("test_results")
+              .select("test_pack, passed, score, total_questions, completed_at")
+              .eq("user_id", user.id)
+              .eq("category_code", params.category)
+
+            // Load pending tests
+            const { data: progress } = await supabase
+              .from("test_progress")
+              .select("test_id, current_question")
+              .eq("user_id", user.id)
+              .eq("category_code", params.category)
+
+            const statusMap: Record<string, TestStatus> = {}
+
+            results?.forEach((result) => {
+              statusMap[result.test_pack] = {
+                test_id: result.test_pack,
+                status: result.passed ? "approved" : "failed",
+                score: result.score,
+                total_questions: result.total_questions,
+                completed_at: result.completed_at,
+              }
+            })
+
+            progress?.forEach((prog) => {
+              if (!statusMap[prog.test_id]) {
+                statusMap[prog.test_id] = {
+                  test_id: prog.test_id,
+                  status: "pending",
+                  current_question: prog.current_question,
+                }
+              }
+            })
+
+            setTestStatuses(statusMap)
+          }
+        }
       } catch (error) {
-        console.error("Error cargando índice de tests:", error)
+        console.error("Error cargando datos:", error)
+      } finally {
+        setLoading(false)
       }
     }
 
-    loadTests()
+    loadData()
   }, [params.category])
 
+  const approvedCount = Object.values(testStatuses).filter((s) => s.status === "approved").length
+  const failedCount = Object.values(testStatuses).filter((s) => s.status === "failed").length
+  const pendingCount = Object.values(testStatuses).filter((s) => s.status === "pending").length
+
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-background via-background to-primary/5 flex items-center justify-center">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary mx-auto mb-4"></div>
+          <p className="text-muted-foreground">Cargando tests...</p>
+        </div>
+      </div>
+    )
+  }
+
   return (
-    <div className="p-6">
-      <h1 className="text-2xl font-bold mb-4">Tests Disponibles</h1>
-      {tests.length === 0 ? (
-        <p>No hay tests disponibles para esta categoría.</p>
-      ) : (
-        <ul className="space-y-3">
-          {tests.map((test) => (
-            <li key={test.id}>
-              <Link href={`/test/${test.id}`} className="text-blue-600 hover:underline">
-                {test.title}
-              </Link>
-            </li>
-          ))}
-        </ul>
-      )}
+    <div className="min-h-screen bg-gradient-to-br from-background via-background to-primary/5">
+      <header className="border-b bg-card/50 backdrop-blur-sm">
+        <div className="container mx-auto px-6 py-6">
+          <div className="flex items-center gap-4 mb-4">
+            <Link href="/dashboard">
+              <Button variant="ghost" size="sm" className="gap-2">
+                <ArrowLeft className="w-4 h-4" />
+                Volver
+              </Button>
+            </Link>
+          </div>
+          <div className="flex items-center justify-between">
+            <div className="space-y-2">
+              <h1 className="text-3xl font-bold text-balance">Nuestros test en {params.category}</h1>
+              <p className="text-muted-foreground text-lg">
+                Practica con 100 tests oficiales y mejora tus conocimientos
+              </p>
+            </div>
+            <div className="flex items-center gap-4">
+              <span className="text-sm text-muted-foreground">Test mode:</span>
+              <div className="flex items-center gap-2">
+                <span className={`text-sm ${testMode === "study" ? "text-foreground" : "text-muted-foreground"}`}>
+                  estudio
+                </span>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => setTestMode(testMode === "study" ? "exam" : "study")}
+                  className="p-0 h-auto"
+                >
+                  {testMode === "exam" ? (
+                    <ToggleRight className="w-8 h-8 text-orange-500" />
+                  ) : (
+                    <ToggleLeft className="w-8 h-8 text-muted-foreground" />
+                  )}
+                </Button>
+                <span
+                  className={`text-sm ${testMode === "exam" ? "text-orange-500 font-medium" : "text-muted-foreground"}`}
+                >
+                  examen
+                </span>
+              </div>
+              <div className="w-6 h-6 bg-orange-500 rounded-full flex items-center justify-center">
+                <span className="text-white text-xs font-bold">?</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </header>
+
+      <main className="container mx-auto px-6 py-8">
+        {/* Professional Table Interface */}
+        <Card className="bg-card/80 backdrop-blur-sm border-border/50">
+          <CardHeader className="bg-blue-600 text-white rounded-t-lg">
+            <div className="grid grid-cols-4 gap-4 text-center font-semibold">
+              <div>Test</div>
+              <div>Fallos</div>
+              <div>Realizado</div>
+              <div>Último</div>
+            </div>
+          </CardHeader>
+          <CardContent className="p-0">
+            <div className="divide-y divide-border">
+              {tests.map((test, index) => {
+                const status = testStatuses[test.id]
+                const testNumber = String(index + 1).padStart(3, "0")
+
+                return (
+                  <div
+                    key={test.id}
+                    className="grid grid-cols-4 gap-4 items-center py-3 px-6 hover:bg-muted/30 transition-colors group"
+                  >
+                    {/* Test Number */}
+                    <div className="flex items-center gap-3">
+                      <div className="w-16 h-10 bg-gray-600 text-white rounded flex items-center justify-center font-mono text-sm">
+                        {testNumber}
+                      </div>
+                      {status?.status === "approved" && <CheckCircle className="w-4 h-4 text-green-600" />}
+                      {status?.status === "failed" && <XCircle className="w-4 h-4 text-red-600" />}
+                      {status?.status === "pending" && <Clock3 className="w-4 h-4 text-amber-500" />}
+                    </div>
+
+                    {/* Fallos (Errors) */}
+                    <div className="text-center">
+                      {status?.status === "approved" || status?.status === "failed" ? (
+                        <span className="text-sm">
+                          {status.total_questions && status.score ? status.total_questions - status.score : "-"}
+                        </span>
+                      ) : (
+                        <span className="text-muted-foreground">-</span>
+                      )}
+                    </div>
+
+                    {/* Realizado (Completed) */}
+                    <div className="text-center">
+                      {status?.status === "approved" && (
+                        <Badge className="bg-green-100 text-green-800 border-green-200">Aprobado</Badge>
+                      )}
+                      {status?.status === "failed" && (
+                        <Badge className="bg-red-100 text-red-800 border-red-200">Suspendido</Badge>
+                      )}
+                      {status?.status === "pending" && (
+                        <Badge className="bg-amber-100 text-amber-800 border-amber-200">Pendiente</Badge>
+                      )}
+                      {!status && <span className="text-muted-foreground text-sm">No realizado</span>}
+                    </div>
+
+                    {/* Último (Last) */}
+                    <div className="flex items-center justify-between">
+                      <div className="text-center flex-1">
+                        {status?.completed_at ? (
+                          <span className="text-sm text-muted-foreground">
+                            {new Date(status.completed_at).toLocaleDateString("es-ES", {
+                              day: "2-digit",
+                              month: "2-digit",
+                              year: "2-digit",
+                            })}
+                          </span>
+                        ) : status?.status === "pending" ? (
+                          <span className="text-sm text-amber-600">P. {(status.current_question || 0) + 1}/30</span>
+                        ) : (
+                          <span className="text-muted-foreground text-sm">-</span>
+                        )}
+                      </div>
+                      <Link href={`/test/${test.id}?mode=${testMode}`}>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className="opacity-0 group-hover:opacity-100 transition-opacity"
+                        >
+                          <ChevronRight className="w-4 h-4" />
+                        </Button>
+                      </Link>
+                    </div>
+                  </div>
+                )
+              })}
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* Stats Summary */}
+        <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mt-8">
+          <Card className="bg-card/50 backdrop-blur-sm border-primary/20">
+            <CardContent className="p-6">
+              <div className="flex items-center gap-3">
+                <div className="p-2 bg-primary/10 rounded-lg">
+                  <BookOpen className="w-5 h-5 text-primary" />
+                </div>
+                <div>
+                  <p className="text-2xl font-bold">{tests.length}</p>
+                  <p className="text-sm text-muted-foreground">Tests disponibles</p>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+
+          <Card className="bg-card/50 backdrop-blur-sm border-green-500/20">
+            <CardContent className="p-6">
+              <div className="flex items-center gap-3">
+                <div className="p-2 bg-green-500/10 rounded-lg">
+                  <CheckCircle className="w-5 h-5 text-green-600" />
+                </div>
+                <div>
+                  <p className="text-2xl font-bold">{approvedCount}</p>
+                  <p className="text-sm text-muted-foreground">Aprobados</p>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+
+          <Card className="bg-card/50 backdrop-blur-sm border-red-500/20">
+            <CardContent className="p-6">
+              <div className="flex items-center gap-3">
+                <div className="p-2 bg-red-500/10 rounded-lg">
+                  <XCircle className="w-5 h-5 text-red-600" />
+                </div>
+                <div>
+                  <p className="text-2xl font-bold">{failedCount}</p>
+                  <p className="text-sm text-muted-foreground">Suspendidos</p>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+
+          <Card className="bg-card/50 backdrop-blur-sm border-amber-500/20">
+            <CardContent className="p-6">
+              <div className="flex items-center gap-3">
+                <div className="p-2 bg-amber-500/10 rounded-lg">
+                  <Clock3 className="w-5 h-5 text-amber-500" />
+                </div>
+                <div>
+                  <p className="text-2xl font-bold">{pendingCount}</p>
+                  <p className="text-sm text-muted-foreground">Pendientes</p>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+      </main>
     </div>
   )
 }

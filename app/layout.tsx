@@ -18,17 +18,15 @@ export default function RootLayout({
     <html lang="es">
       <body className="font-sans antialiased">
         <Suspense fallback={null}>{children}</Suspense>
-      
-{/* Inyectamos variables públicas para el cliente */}
-<script
-  dangerouslySetInnerHTML={{
-    __html: `window.__env = ${JSON.stringify({
-      NEXT_PUBLIC_SUPABASE_URL: "${"${process.env.NEXT_PUBLIC_SUPABASE_URL ?? ""}"}",
-      NEXT_PUBLIC_SUPABASE_ANON_KEY: "${"${process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ?? ""}"}"
-    })};`,
-  }}
-/>
 
+        <script
+          dangerouslySetInnerHTML={{
+            __html: `window.__env = ${JSON.stringify({
+              NEXT_PUBLIC_SUPABASE_URL: process.env.NEXT_PUBLIC_SUPABASE_URL ?? "",
+              NEXT_PUBLIC_SUPABASE_ANON_KEY: process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ?? "",
+            })};`,
+          }}
+        />
       </body>
     </html>
   )

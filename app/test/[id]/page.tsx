@@ -6,15 +6,9 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { Progress } from "@/components/ui/progress"
-import {
-  Clock,
-  ArrowLeft,
-  ArrowRight,
-  CheckCircle,
-  XCircle,
-  RotateCcw,
-} from "lucide-react"
+import { Clock, ArrowLeft, ArrowRight, CheckCircle, XCircle, RotateCcw, List, EyeOff, Save } from "lucide-react"
 import Link from "next/link"
+import { createClient } from "@/lib/supabase/client"
 
 interface Question {
   question: string
@@ -31,7 +25,6 @@ interface TestData {
 }
 
 export default function TestPage() {
-  // ✅ admite rutas dinámicas (/test/[id]) y query string (?test=)
   const routeParams = useParams() as { id?: string | string[] }
   const searchParams = useSearchParams()
   const rawId = routeParams?.id ?? searchParams.get("test")
@@ -43,14 +36,16 @@ export default function TestPage() {
   const [timeLeft, setTimeLeft] = useState(30 * 60)
   const [isFinished, setIsFinished] = useState(false)
   const [showResults, setShowResults] = useState(false)
+  const [showQuestionPanel, setShowQuestionPanel] = useState(false)
+  const [user, setUser] = useState<any>(null)
 
-  // 📌 cargar JSON desde /public/tests/[id].json
   useEffect(() => {
     async function loadTest() {
       try {
         if (!id) return
-        const res = await fetch(`/tests/${id}.json`)
-        if (!res.ok) throw new Error(`No se pudo cargar /tests/${id}.json`)
+        const capitalizedId = id.charAt(0).toUpperCase() + id.slice(1)
+        const res = await fetch(`/tests/${capitalizedId}.json`)
+        if (!res.ok) throw new Error(`No se pudo cargar /tests/${capitalizedId}.json`)
         const json: TestData = await res.json()
         setData(json)
         setSelectedAnswers(new Array(json.questions.length).fill(null))
@@ -65,7 +60,33 @@ export default function TestPage() {
     setTimeLeft(30 * 60)
   }, [id])
 
-  // ⏱ temporizador
+  useEffect(() => {
+    async function loadUserAndProgress() {
+      const supabase = createClient()
+      if (supabase) {
+        const {
+          data: { user },
+        } = await supabase.auth.getUser()
+        setUser(user)
+
+        if (user && id) {
+          const { data: progress } = await supabase
+            .from("test_progress")
+            .select("*")
+            .eq("user_id", user.id)
+            .eq("test_id", id)
+            .single()
+
+          if (progress) {
+            setCurrentQuestion(progress.current_question || 0)
+            setSelectedAnswers(progress.answers ? Object.values(progress.answers) : new Array(30).fill(null))
+          }
+        }
+      }
+    }
+    loadUserAndProgress()
+  }, [id])
+
   useEffect(() => {
     if (timeLeft > 0 && !isFinished) {
       const timer = setTimeout(() => setTimeLeft((t) => t - 1), 1000)
@@ -78,9 +99,7 @@ export default function TestPage() {
   const formatTime = (seconds: number) => {
     const mins = Math.floor(seconds / 60)
     const secs = seconds % 60
-    return `${mins.toString().padStart(2, "0")}:${secs
-      .toString()
-      .padStart(2, "0")}`
+    return `${mins.toString().padStart(2, "0")}:${secs.toString().padStart(2, "0")}`
   }
 
   const handleAnswerSelect = (answer: string) => {
@@ -103,9 +122,29 @@ export default function TestPage() {
     }
   }
 
-  const finishTest = () => {
+  const finishTest = async () => {
     setIsFinished(true)
     setShowResults(true)
+
+    if (user && id && data) {
+      const supabase = createClient()
+      if (supabase) {
+        const results = calculateResults()
+        const passed = results.correct >= 27
+
+        await supabase.from("test_results").insert({
+          user_id: user.id,
+          test_pack: id,
+          category_code: data.category,
+          score: results.correct,
+          total_questions: data.questions.length,
+          passed: passed,
+          test_mode: "practice",
+        })
+
+        await supabase.from("test_progress").delete().eq("user_id", user.id).eq("test_id", id)
+      }
+    }
   }
 
   const calculateResults = () => {
@@ -136,6 +175,43 @@ export default function TestPage() {
     setShowResults(false)
   }
 
+  const jumpToQuestion = (questionIndex: number) => {
+    setCurrentQuestion(questionIndex)
+    setShowQuestionPanel(false)
+  }
+
+  const saveProgress = async () => {
+    if (!user || !id || !data) return
+
+    const supabase = createClient()
+    if (!supabase) return
+
+    const answersObj = selectedAnswers.reduce(
+      (acc, answer, index) => {
+        if (answer !== null) {
+          acc[index] = answer
+        }
+        return acc
+      },
+      {} as Record<number, string>,
+    )
+
+    await supabase.from("test_progress").upsert({
+      user_id: user.id,
+      test_id: id,
+      category_code: data.category,
+      current_question: currentQuestion,
+      answers: answersObj,
+    })
+  }
+
+  useEffect(() => {
+    if (user && id && selectedAnswers.some((a) => a !== null)) {
+      const timeoutId = setTimeout(saveProgress, 1000)
+      return () => clearTimeout(timeoutId)
+    }
+  }, [selectedAnswers, currentQuestion, user, id])
+
   if (!id) {
     return (
       <div className="p-6">
@@ -156,7 +232,6 @@ export default function TestPage() {
   const question = data.questions[currentQuestion]
   const progress = ((currentQuestion + 1) / data.questions.length) * 100
 
-  // --- Vista de resultados ---
   if (showResults) {
     return (
       <div className="min-h-screen bg-gradient-to-br from-background via-background to-muted/20 py-8">
@@ -187,25 +262,19 @@ export default function TestPage() {
               <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                 <Card className="bg-chart-4/5 border-chart-4/20">
                   <CardContent className="p-4 text-center">
-                    <div className="text-2xl font-bold text-chart-4">
-                      {results.correct}
-                    </div>
+                    <div className="text-2xl font-bold text-chart-4">{results.correct}</div>
                     <div className="text-sm text-muted-foreground">Correctas</div>
                   </CardContent>
                 </Card>
                 <Card className="bg-destructive/5 border-destructive/20">
                   <CardContent className="p-4 text-center">
-                    <div className="text-2xl font-bold text-destructive">
-                      {results.incorrect}
-                    </div>
+                    <div className="text-2xl font-bold text-destructive">{results.incorrect}</div>
                     <div className="text-sm text-muted-foreground">Incorrectas</div>
                   </CardContent>
                 </Card>
                 <Card className="bg-muted/50 border-border/50">
                   <CardContent className="p-4 text-center">
-                    <div className="text-2xl font-bold text-muted-foreground">
-                      {results.unanswered}
-                    </div>
+                    <div className="text-2xl font-bold text-muted-foreground">{results.unanswered}</div>
                     <div className="text-sm text-muted-foreground">Sin responder</div>
                   </CardContent>
                 </Card>
@@ -215,16 +284,11 @@ export default function TestPage() {
                   <span>Puntuación</span>
                   <span>
                     {results.correct}/{data.questions.length} (
-                    {Math.round(
-                      (results.correct / data.questions.length) * 100
-                    )}
+                    {Math.round((results.correct / data.questions.length) * 100)}
                     %)
                   </span>
                 </div>
-                <Progress
-                  value={(results.correct / data.questions.length) * 100}
-                  className="h-3"
-                />
+                <Progress value={(results.correct / data.questions.length) * 100} className="h-3" />
               </div>
               <div className="flex flex-col sm:flex-row gap-4 pt-6">
                 <Button onClick={restartTest} className="flex-1">
@@ -245,13 +309,12 @@ export default function TestPage() {
     )
   }
 
-  // --- Vista del test ---
   return (
-    <div className="min-h-screen bg-gradient-to-br from-background via-background to-muted/20">
+    <div className="min-h-screen bg-gradient-to-br from-background via-background to-primary/5">
       <header className="border-b bg-card/50 backdrop-blur-sm sticky top-0 z-50">
         <div className="container mx-auto px-4 py-4 flex items-center justify-between">
           <div className="flex items-center gap-4">
-            <Link href="/">
+            <Link href={`/categories/${data?.category || ""}`}>
               <Button variant="ghost" size="sm">
                 <ArrowLeft className="w-4 h-4 mr-2" />
                 Salir
@@ -265,13 +328,27 @@ export default function TestPage() {
             </div>
           </div>
           <div className="flex items-center gap-4">
+            {user && (
+              <Button variant="outline" size="sm" onClick={saveProgress} className="gap-2 bg-transparent">
+                <Save className="w-4 h-4" />
+                Guardar
+              </Button>
+            )}
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setShowQuestionPanel(!showQuestionPanel)}
+              className="gap-2"
+            >
+              {showQuestionPanel ? <EyeOff className="w-4 h-4" /> : <List className="w-4 h-4" />}
+              {showQuestionPanel ? "Ocultar" : "Ver"} Preguntas
+            </Button>
             <Badge variant="outline" className="font-mono">
               <Clock className="w-3 h-3 mr-1" />
               {formatTime(timeLeft)}
             </Badge>
             <Badge className="bg-accent text-accent-foreground">
-              {selectedAnswers.filter((a) => a !== null).length}/
-              {data.questions.length}
+              {selectedAnswers.filter((a) => a !== null).length}/{data.questions.length}
             </Badge>
           </div>
         </div>
@@ -281,80 +358,131 @@ export default function TestPage() {
       </header>
 
       <main className="py-8 px-4">
-        <div className="container mx-auto max-w-4xl">
-          <Card className="bg-card/50 backdrop-blur-sm">
-            <CardHeader>
-              <div className="flex items-start justify-between">
-                <CardTitle className="text-xl leading-relaxed">
-                  {question.question}
-                </CardTitle>
-                <Badge variant="secondary" className="ml-4">
-                  {currentQuestion + 1}
-                </Badge>
-              </div>
-            </CardHeader>
-            <CardContent className="space-y-6">
-              {question.image && (
-                <div className="flex justify-center">
-                  <img
-                    src={question.image}
-                    alt="Imagen de la pregunta"
-                    className="max-w-xs rounded-lg border"
-                  />
-                </div>
-              )}
-              <div className="space-y-3">
-                {question.options.map((option, index) => (
-                  <button
-                    key={index}
-                    onClick={() => handleAnswerSelect(option)}
-                    className={`w-full p-4 text-left rounded-lg border-2 transition-all hover:bg-muted/50 ${
-                      selectedAnswers[currentQuestion] === option
-                        ? "border-primary bg-primary/5 text-primary"
-                        : "border-border bg-card hover:border-border/80"
-                    }`}
-                  >
-                    <div className="flex items-center gap-3">
-                      <div
-                        className={`w-6 h-6 rounded-full border-2 flex items-center justify-center text-xs font-medium ${
+        <div className="container mx-auto max-w-6xl">
+          <div className="flex gap-6">
+            {showQuestionPanel && (
+              <Card className="w-80 bg-card/50 backdrop-blur-sm h-fit sticky top-24">
+                <CardHeader className="pb-3">
+                  <CardTitle className="text-lg flex items-center gap-2">
+                    <List className="w-5 h-5" />
+                    Navegación de Preguntas
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="grid grid-cols-5 gap-2 mb-4">
+                    {data.questions.map((_, index) => (
+                      <button
+                        key={index}
+                        onClick={() => jumpToQuestion(index)}
+                        className={`
+                          w-10 h-10 rounded-lg text-sm font-medium transition-all
+                          ${
+                            currentQuestion === index
+                              ? "bg-primary text-primary-foreground ring-2 ring-primary/50"
+                              : selectedAnswers[index] !== null
+                                ? "bg-chart-4/20 text-chart-4 border border-chart-4/30 hover:bg-chart-4/30"
+                                : "bg-muted text-muted-foreground hover:bg-muted/80 border border-border"
+                          }
+                        `}
+                      >
+                        {index + 1}
+                      </button>
+                    ))}
+                  </div>
+                  <div className="space-y-2 text-sm">
+                    <div className="flex items-center gap-2">
+                      <div className="w-4 h-4 bg-primary rounded"></div>
+                      <span>Pregunta actual</span>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <div className="w-4 h-4 bg-chart-4/20 border border-chart-4/30 rounded"></div>
+                      <span>Respondida</span>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <div className="w-4 h-4 bg-muted border border-border rounded"></div>
+                      <span>Sin responder</span>
+                    </div>
+                  </div>
+                  <div className="mt-4 pt-4 border-t">
+                    <div className="text-sm text-muted-foreground">
+                      Progreso: {selectedAnswers.filter((a) => a !== null).length} de {data.questions.length}
+                    </div>
+                    <Progress
+                      value={(selectedAnswers.filter((a) => a !== null).length / data.questions.length) * 100}
+                      className="h-2 mt-2"
+                    />
+                  </div>
+                </CardContent>
+              </Card>
+            )}
+
+            <div className="flex-1">
+              <Card className="bg-card/50 backdrop-blur-sm">
+                <CardHeader>
+                  <div className="flex items-start justify-between">
+                    <CardTitle className="text-xl leading-relaxed text-balance">{question.question}</CardTitle>
+                    <Badge variant="secondary" className="ml-4">
+                      {currentQuestion + 1}
+                    </Badge>
+                  </div>
+                </CardHeader>
+                <CardContent className="space-y-6">
+                  {question.image && (
+                    <div className="flex justify-center">
+                      <img
+                        src={question.image || "/placeholder.svg"}
+                        alt="Imagen de la pregunta"
+                        className="max-w-xs rounded-lg border"
+                      />
+                    </div>
+                  )}
+                  <div className="space-y-3">
+                    {question.options.map((option, index) => (
+                      <button
+                        key={index}
+                        onClick={() => handleAnswerSelect(option)}
+                        className={`w-full p-4 text-left rounded-lg border-2 transition-all hover:bg-muted/50 ${
                           selectedAnswers[currentQuestion] === option
-                            ? "border-primary bg-primary text-primary-foreground"
-                            : "border-muted-foreground text-muted-foreground"
+                            ? "border-primary bg-primary/5 text-primary"
+                            : "border-border bg-card hover:border-border/80"
                         }`}
                       >
-                        {String.fromCharCode(65 + index)}
-                      </div>
-                      <span>{option}</span>
-                    </div>
-                  </button>
-                ))}
-              </div>
-              <div className="flex justify-between pt-6">
-                <Button
-                  variant="outline"
-                  onClick={prevQuestion}
-                  disabled={currentQuestion === 0}
-                >
-                  <ArrowLeft className="w-4 h-4 mr-2" />
-                  Anterior
-                </Button>
-                {currentQuestion === data.questions.length - 1 ? (
-                  <Button
-                    onClick={finishTest}
-                    className="bg-accent hover:bg-accent/90"
-                  >
-                    <CheckCircle className="w-4 h-4 mr-2" />
-                    Finalizar Test
-                  </Button>
-                ) : (
-                  <Button onClick={nextQuestion}>
-                    Siguiente
-                    <ArrowRight className="w-4 h-4 ml-2" />
-                  </Button>
-                )}
-              </div>
-            </CardContent>
-          </Card>
+                        <div className="flex items-center gap-3">
+                          <div
+                            className={`w-6 h-6 rounded-full border-2 flex items-center justify-center text-xs font-medium ${
+                              selectedAnswers[currentQuestion] === option
+                                ? "border-primary bg-primary text-primary-foreground"
+                                : "border-muted-foreground text-muted-foreground"
+                            }`}
+                          >
+                            {String.fromCharCode(65 + index)}
+                          </div>
+                          <span>{option}</span>
+                        </div>
+                      </button>
+                    ))}
+                  </div>
+                  <div className="flex justify-between pt-6">
+                    <Button variant="outline" onClick={prevQuestion} disabled={currentQuestion === 0}>
+                      <ArrowLeft className="w-4 h-4 mr-2" />
+                      Anterior
+                    </Button>
+                    {currentQuestion === data.questions.length - 1 ? (
+                      <Button onClick={finishTest} className="bg-accent hover:bg-accent/90">
+                        <CheckCircle className="w-4 h-4 mr-2" />
+                        Finalizar Test
+                      </Button>
+                    ) : (
+                      <Button onClick={nextQuestion}>
+                        Siguiente
+                        <ArrowRight className="w-4 h-4 ml-2" />
+                      </Button>
+                    )}
+                  </div>
+                </CardContent>
+              </Card>
+            </div>
+          </div>
         </div>
       </main>
     </div>

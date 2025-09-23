@@ -7,6 +7,7 @@ import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { ArrowLeft, BookOpen, CheckCircle, XCircle, Clock3, ChevronRight, ToggleLeft, ToggleRight } from "lucide-react"
 import { createClient } from "@/lib/supabase/client"
+import { getStoredTestsByCategory } from "@/lib/local-test-storage"
 
 interface TestSummary {
   id: string
@@ -16,7 +17,7 @@ interface TestSummary {
 
 interface TestStatus {
   test_id: string
-  status: "approved" | "failed" | "pending"
+  status: "approved" | "failed" | "incomplete"
   score?: number
   total_questions?: number
   current_question?: number
@@ -43,6 +44,8 @@ export default function CategoryPage({ params }: { params: { category: string } 
         setTests(generatedTests)
 
         const supabase = createClient()
+        const statusMap: Record<string, TestStatus> = {}
+
         if (supabase) {
           const {
             data: { user },
@@ -62,8 +65,6 @@ export default function CategoryPage({ params }: { params: { category: string } 
               .eq("user_id", user.id)
               .eq("category_code", params.category)
 
-            const statusMap: Record<string, TestStatus> = {}
-
             results?.forEach((result) => {
               statusMap[result.test_pack] = {
                 test_id: result.test_pack,
@@ -78,15 +79,54 @@ export default function CategoryPage({ params }: { params: { category: string } 
               if (!statusMap[prog.test_id]) {
                 statusMap[prog.test_id] = {
                   test_id: prog.test_id,
-                  status: "pending",
+                  status: "incomplete",
                   current_question: prog.current_question,
                 }
               }
             })
-
-            setTestStatuses(statusMap)
           }
         }
+
+        const localStates = getStoredTestsByCategory(params.category)
+
+        localStates.forEach((state) => {
+          const totalQuestions = state.totalQuestions ?? state.answers?.length
+
+          if (state.status === "approved" || state.status === "failed") {
+            const existing = statusMap[state.testId]
+            if (!existing || existing.status === "incomplete") {
+              statusMap[state.testId] = {
+                test_id: state.testId,
+                status: state.status,
+                score: state.score,
+                total_questions: totalQuestions,
+                completed_at: state.completedAt,
+              }
+            }
+            return
+          }
+
+          if (state.status === "incomplete") {
+            const existing = statusMap[state.testId]
+            const entry: TestStatus = {
+              test_id: state.testId,
+              status: "incomplete",
+              current_question: state.currentQuestion,
+              total_questions: totalQuestions,
+            }
+
+            if (!existing) {
+              statusMap[state.testId] = entry
+            } else if (existing.status === "incomplete") {
+              statusMap[state.testId] = {
+                ...existing,
+                ...entry,
+              }
+            }
+          }
+        })
+
+        setTestStatuses(statusMap)
       } catch (error) {
         console.error("Error cargando datos:", error)
       } finally {
@@ -99,7 +139,7 @@ export default function CategoryPage({ params }: { params: { category: string } 
 
   const approvedCount = Object.values(testStatuses).filter((s) => s.status === "approved").length
   const failedCount = Object.values(testStatuses).filter((s) => s.status === "failed").length
-  const pendingCount = Object.values(testStatuses).filter((s) => s.status === "pending").length
+  const incompleteCount = Object.values(testStatuses).filter((s) => s.status === "incomplete").length
 
   if (loading) {
     return (
@@ -192,7 +232,7 @@ export default function CategoryPage({ params }: { params: { category: string } 
                       </div>
                       {status?.status === "approved" && <CheckCircle className="w-4 h-4 text-green-600" />}
                       {status?.status === "failed" && <XCircle className="w-4 h-4 text-red-600" />}
-                      {status?.status === "pending" && <Clock3 className="w-4 h-4 text-amber-500" />}
+                      {status?.status === "incomplete" && <Clock3 className="w-4 h-4 text-amber-500" />}
                     </div>
 
                     {/* Fallos (Errors) */}
@@ -214,8 +254,8 @@ export default function CategoryPage({ params }: { params: { category: string } 
                       {status?.status === "failed" && (
                         <Badge className="bg-red-100 text-red-800 border-red-200">Suspendido</Badge>
                       )}
-                      {status?.status === "pending" && (
-                        <Badge className="bg-amber-100 text-amber-800 border-amber-200">Pendiente</Badge>
+                      {status?.status === "incomplete" && (
+                        <Badge className="bg-amber-100 text-amber-800 border-amber-200">Incompleto</Badge>
                       )}
                       {!status && <span className="text-muted-foreground text-sm">No realizado</span>}
                     </div>
@@ -231,8 +271,10 @@ export default function CategoryPage({ params }: { params: { category: string } 
                               year: "2-digit",
                             })}
                           </span>
-                        ) : status?.status === "pending" ? (
-                          <span className="text-sm text-amber-600">P. {(status.current_question || 0) + 1}/30</span>
+                        ) : status?.status === "incomplete" ? (
+                          <span className="text-sm text-amber-600">
+                            P. {(status.current_question || 0) + 1}/{status.total_questions ?? 30}
+                          </span>
                         ) : (
                           <span className="text-muted-foreground text-sm">-</span>
                         )}
@@ -305,8 +347,8 @@ export default function CategoryPage({ params }: { params: { category: string } 
                   <Clock3 className="w-5 h-5 text-amber-500" />
                 </div>
                 <div>
-                  <p className="text-2xl font-bold">{pendingCount}</p>
-                  <p className="text-sm text-muted-foreground">Pendientes</p>
+                  <p className="text-2xl font-bold">{incompleteCount}</p>
+                  <p className="text-sm text-muted-foreground">Incompletos</p>
                 </div>
               </div>
             </CardContent>

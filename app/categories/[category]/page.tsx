@@ -1,12 +1,18 @@
 "use client"
 
-import { useEffect, useState } from "react"
+import { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import Link from "next/link"
 import { Card, CardContent, CardHeader } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { ArrowLeft, BookOpen, CheckCircle, XCircle, Clock3, ChevronRight, ToggleLeft, ToggleRight } from "lucide-react"
 import { createClient } from "@/lib/supabase/client"
+import {
+  getStoredTestsByCategory,
+  LOCAL_TEST_STORAGE_KEY,
+  TEST_STATE_EVENT_NAME,
+  type StoredTestState,
+} from "@/lib/local-test-storage"
 
 interface TestSummary {
   id: string
@@ -16,7 +22,7 @@ interface TestSummary {
 
 interface TestStatus {
   test_id: string
-  status: "approved" | "failed" | "pending"
+  status: "approved" | "failed" | "incomplete"
   score?: number
   total_questions?: number
   current_question?: number
@@ -24,82 +30,204 @@ interface TestStatus {
 }
 
 export default function CategoryPage({ params }: { params: { category: string } }) {
-  const [tests, setTests] = useState<TestSummary[]>([])
+  const tests = useMemo(() => {
+    const generated: TestSummary[] = []
+    for (let i = 1; i <= 100; i++) {
+      generated.push({
+        id: `test${i}`,
+        title: `Test ${String(i).padStart(3, "0")}`,
+        category: params.category,
+      })
+    }
+    return generated
+  }, [params.category])
   const [testStatuses, setTestStatuses] = useState<Record<string, TestStatus>>({})
   const [loading, setLoading] = useState(true)
   const [testMode, setTestMode] = useState<"study" | "exam">("exam")
+  const isMountedRef = useRef(true)
+  const latestRequestRef = useRef(0)
+  const spinnerRequestRef = useRef<number | null>(null)
 
   useEffect(() => {
-    async function loadData() {
-      try {
-        const generatedTests: TestSummary[] = []
-        for (let i = 1; i <= 100; i++) {
-          generatedTests.push({
-            id: `test${i}`,
-            title: `Test ${String(i).padStart(3, "0")}`,
-            category: params.category,
-          })
-        }
-        setTests(generatedTests)
+    return () => {
+      isMountedRef.current = false
+    }
+  }, [])
 
-        const supabase = createClient()
-        if (supabase) {
-          const {
-            data: { user },
-          } = await supabase.auth.getUser()
-          if (user) {
-            // Load completed tests
-            const { data: results } = await supabase
-              .from("test_results")
-              .select("test_pack, passed, score, total_questions, completed_at")
-              .eq("user_id", user.id)
-              .eq("category_code", params.category)
+  const fetchStatuses = useCallback(async () => {
+    const statusMap: Record<string, TestStatus> = {}
+    const supabase = createClient()
 
-            // Load pending tests
-            const { data: progress } = await supabase
-              .from("test_progress")
-              .select("test_id, current_question")
-              .eq("user_id", user.id)
-              .eq("category_code", params.category)
+    if (supabase) {
+      const {
+        data: { user },
+      } = await supabase.auth.getUser()
 
-            const statusMap: Record<string, TestStatus> = {}
+      if (user) {
+        const [{ data: results }, { data: progress }] = await Promise.all([
+          supabase
+            .from("test_results")
+            .select("test_pack, passed, score, total_questions, completed_at")
+            .eq("user_id", user.id)
+            .eq("category_code", params.category),
+          supabase
+            .from("test_progress")
+            .select("test_id, current_question")
+            .eq("user_id", user.id)
+            .eq("category_code", params.category),
+        ])
 
-            results?.forEach((result) => {
-              statusMap[result.test_pack] = {
-                test_id: result.test_pack,
-                status: result.passed ? "approved" : "failed",
-                score: result.score,
-                total_questions: result.total_questions,
-                completed_at: result.completed_at,
-              }
-            })
-
-            progress?.forEach((prog) => {
-              if (!statusMap[prog.test_id]) {
-                statusMap[prog.test_id] = {
-                  test_id: prog.test_id,
-                  status: "pending",
-                  current_question: prog.current_question,
-                }
-              }
-            })
-
-            setTestStatuses(statusMap)
+        results?.forEach((result) => {
+          statusMap[result.test_pack] = {
+            test_id: result.test_pack,
+            status: result.passed ? "approved" : "failed",
+            score: result.score,
+            total_questions: result.total_questions,
+            completed_at: result.completed_at,
           }
-        }
-      } catch (error) {
-        console.error("Error cargando datos:", error)
-      } finally {
-        setLoading(false)
+        })
+
+        progress?.forEach((prog) => {
+          if (!statusMap[prog.test_id]) {
+            statusMap[prog.test_id] = {
+              test_id: prog.test_id,
+              status: "incomplete",
+              current_question: prog.current_question,
+            }
+          }
+        })
       }
     }
 
-    loadData()
+    const localStates = getStoredTestsByCategory(params.category)
+
+    localStates.forEach((state) => {
+      const totalQuestions = state.totalQuestions ?? state.answers?.length
+
+      if (state.status === "approved" || state.status === "failed") {
+        const existing = statusMap[state.testId]
+        if (!existing || existing.status === "incomplete") {
+          statusMap[state.testId] = {
+            test_id: state.testId,
+            status: state.status,
+            score: state.score,
+            total_questions: totalQuestions,
+            completed_at: state.completedAt,
+          }
+        }
+        return
+      }
+
+      if (state.status === "incomplete") {
+        const existing = statusMap[state.testId]
+        const entry: TestStatus = {
+          test_id: state.testId,
+          status: "incomplete",
+          current_question: state.currentQuestion,
+          total_questions: totalQuestions,
+        }
+
+        if (!existing) {
+          statusMap[state.testId] = entry
+        } else if (existing.status === "incomplete") {
+          statusMap[state.testId] = {
+            ...existing,
+            ...entry,
+          }
+        }
+      }
+    })
+
+    return statusMap
   }, [params.category])
+
+  const refreshStatuses = useCallback(
+    async (options?: { withLoading?: boolean }) => {
+      const withLoading = options?.withLoading ?? false
+      const requestId = latestRequestRef.current + 1
+      latestRequestRef.current = requestId
+
+      if (withLoading) {
+        spinnerRequestRef.current = requestId
+        setLoading(true)
+      }
+
+      try {
+        const statusMap = await fetchStatuses()
+
+        if (!isMountedRef.current || requestId !== latestRequestRef.current) {
+          return
+        }
+
+        setTestStatuses(statusMap)
+      } catch (error) {
+        if (isMountedRef.current) {
+          console.error("Error cargando datos:", error)
+        }
+      } finally {
+        if (!isMountedRef.current) {
+          return
+        }
+
+        if (spinnerRequestRef.current === requestId) {
+          spinnerRequestRef.current = null
+          setLoading(false)
+        } else if (withLoading && spinnerRequestRef.current === null) {
+          setLoading(false)
+        }
+      }
+    },
+    [fetchStatuses],
+  )
+
+  useEffect(() => {
+    void refreshStatuses({ withLoading: true })
+  }, [refreshStatuses])
+
+  useEffect(() => {
+    const handleImmediateRefresh = () => {
+      void refreshStatuses()
+    }
+
+    const handleVisibilityChange = () => {
+      if (!document.hidden) {
+        void refreshStatuses()
+      }
+    }
+
+    const handleStorage = (event: StorageEvent) => {
+      if (!event.key || event.key === LOCAL_TEST_STORAGE_KEY) {
+        void refreshStatuses()
+      }
+    }
+
+    const handleTestStateChange: EventListener = (event) => {
+      const detail = (event as CustomEvent<{ state: StoredTestState | null; previousState: StoredTestState | null }>).detail
+      const categoryFromEvent = detail?.state?.category ?? detail?.previousState?.category
+
+      if (!categoryFromEvent || categoryFromEvent === params.category) {
+        void refreshStatuses()
+      }
+    }
+
+    window.addEventListener("focus", handleImmediateRefresh)
+    window.addEventListener("pageshow", handleImmediateRefresh)
+    window.addEventListener("visibilitychange", handleVisibilityChange)
+    window.addEventListener("storage", handleStorage)
+    window.addEventListener(TEST_STATE_EVENT_NAME, handleTestStateChange)
+
+    return () => {
+      window.removeEventListener("focus", handleImmediateRefresh)
+      window.removeEventListener("pageshow", handleImmediateRefresh)
+      window.removeEventListener("visibilitychange", handleVisibilityChange)
+      window.removeEventListener("storage", handleStorage)
+      window.removeEventListener(TEST_STATE_EVENT_NAME, handleTestStateChange)
+    }
+  }, [params.category, refreshStatuses])
 
   const approvedCount = Object.values(testStatuses).filter((s) => s.status === "approved").length
   const failedCount = Object.values(testStatuses).filter((s) => s.status === "failed").length
-  const pendingCount = Object.values(testStatuses).filter((s) => s.status === "pending").length
+  const incompleteCount = Object.values(testStatuses).filter((s) => s.status === "incomplete").length
 
   if (loading) {
     return (
@@ -192,7 +320,7 @@ export default function CategoryPage({ params }: { params: { category: string } 
                       </div>
                       {status?.status === "approved" && <CheckCircle className="w-4 h-4 text-green-600" />}
                       {status?.status === "failed" && <XCircle className="w-4 h-4 text-red-600" />}
-                      {status?.status === "pending" && <Clock3 className="w-4 h-4 text-amber-500" />}
+                      {status?.status === "incomplete" && <Clock3 className="w-4 h-4 text-amber-500" />}
                     </div>
 
                     {/* Fallos (Errors) */}
@@ -214,8 +342,8 @@ export default function CategoryPage({ params }: { params: { category: string } 
                       {status?.status === "failed" && (
                         <Badge className="bg-red-100 text-red-800 border-red-200">Suspendido</Badge>
                       )}
-                      {status?.status === "pending" && (
-                        <Badge className="bg-amber-100 text-amber-800 border-amber-200">Pendiente</Badge>
+                      {status?.status === "incomplete" && (
+                        <Badge className="bg-amber-100 text-amber-800 border-amber-200">Incompleto</Badge>
                       )}
                       {!status && <span className="text-muted-foreground text-sm">No realizado</span>}
                     </div>
@@ -231,8 +359,10 @@ export default function CategoryPage({ params }: { params: { category: string } 
                               year: "2-digit",
                             })}
                           </span>
-                        ) : status?.status === "pending" ? (
-                          <span className="text-sm text-amber-600">P. {(status.current_question || 0) + 1}/30</span>
+                        ) : status?.status === "incomplete" ? (
+                          <span className="text-sm text-amber-600">
+                            P. {(status.current_question || 0) + 1}/{status.total_questions ?? 30}
+                          </span>
                         ) : (
                           <span className="text-muted-foreground text-sm">-</span>
                         )}
@@ -305,8 +435,8 @@ export default function CategoryPage({ params }: { params: { category: string } 
                   <Clock3 className="w-5 h-5 text-amber-500" />
                 </div>
                 <div>
-                  <p className="text-2xl font-bold">{pendingCount}</p>
-                  <p className="text-sm text-muted-foreground">Pendientes</p>
+                  <p className="text-2xl font-bold">{incompleteCount}</p>
+                  <p className="text-sm text-muted-foreground">Incompletos</p>
                 </div>
               </div>
             </CardContent>

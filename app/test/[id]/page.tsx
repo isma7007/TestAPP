@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useState, useEffect, useCallback } from "react"
 import { useParams, useSearchParams } from "next/navigation"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
@@ -9,6 +9,7 @@ import { Progress } from "@/components/ui/progress"
 import { Clock, ArrowLeft, ArrowRight, CheckCircle, XCircle, RotateCcw, List, EyeOff, Save } from "lucide-react"
 import Link from "next/link"
 import { createClient } from "@/lib/supabase/client"
+import { clearStoredTestState, getStoredTestState, setStoredTestState } from "@/lib/local-test-storage"
 
 interface Question {
   question: string
@@ -61,31 +62,108 @@ export default function TestPage() {
   }, [id])
 
   useEffect(() => {
+    let isMounted = true
+
     async function loadUserAndProgress() {
+      if (!id || !data) {
+        setUser(null)
+        return
+      }
+
+      let progressApplied = false
       const supabase = createClient()
+
       if (supabase) {
         const {
           data: { user },
         } = await supabase.auth.getUser()
+
+        if (!isMounted) return
+
         setUser(user)
 
-        if (user && id) {
+        if (user) {
           const { data: progress } = await supabase
             .from("test_progress")
-            .select("*")
+            .select("answers, current_question")
             .eq("user_id", user.id)
             .eq("test_id", id)
             .single()
 
+          if (!isMounted) return
+
           if (progress) {
-            setCurrentQuestion(progress.current_question || 0)
-            setSelectedAnswers(progress.answers ? Object.values(progress.answers) : new Array(30).fill(null))
+            const answersArray = new Array(data.questions.length).fill(null)
+
+            if (progress.answers) {
+              Object.entries(progress.answers).forEach(([key, value]) => {
+                const index = Number(key)
+                if (!Number.isNaN(index) && index < answersArray.length) {
+                  answersArray[index] = value as string
+                }
+              })
+            }
+
+            const current = Math.min(progress.current_question || 0, data.questions.length - 1)
+
+            setSelectedAnswers(answersArray)
+            setCurrentQuestion(current)
+
+            setStoredTestState(id, {
+              testId: id,
+              category: data.category,
+              answers: answersArray,
+              currentQuestion: current,
+              status: "incomplete",
+              totalQuestions: data.questions.length,
+              updatedAt: new Date().toISOString(),
+            })
+
+            progressApplied = true
           }
         }
+      } else {
+        setUser(null)
+      }
+
+      if (!progressApplied) {
+        const stored = getStoredTestState(id)
+        if (stored) {
+          const answersArray = new Array(data.questions.length).fill(null)
+          stored.answers.forEach((answer, index) => {
+            if (index < answersArray.length) {
+              answersArray[index] = answer
+            }
+          })
+
+          const clampedQuestion = Math.min(stored.currentQuestion || 0, data.questions.length - 1)
+
+          setSelectedAnswers(answersArray)
+          setCurrentQuestion(clampedQuestion)
+
+          if (typeof stored.timeLeft === "number" && stored.timeLeft >= 0) {
+            setTimeLeft(stored.timeLeft)
+          }
+
+          const finished = stored.status === "approved" || stored.status === "failed"
+          setIsFinished(finished)
+          setShowResults(finished)
+
+          progressApplied = true
+        }
+      }
+
+      if (!progressApplied) {
+        setSelectedAnswers(new Array(data.questions.length).fill(null))
       }
     }
+
     loadUserAndProgress()
-  }, [id])
+
+    return () => {
+      isMounted = false
+    }
+  }, [id, data])
 
   useEffect(() => {
     if (timeLeft > 0 && !isFinished) {
@@ -123,22 +201,40 @@ export default function TestPage() {
   }
 
   const finishTest = async () => {
+    if (!data || !id) return
+
+    const results = calculateResults()
+    const passed = results.correct >= 27
+    const completedAt = new Date().toISOString()
+
     setIsFinished(true)
     setShowResults(true)
 
-    if (user && id && data) {
+    const normalizedAnswers = data.questions.map((_, index) => selectedAnswers[index] ?? null)
+
+    setStoredTestState(id, {
+      testId: id,
+      category: data.category,
+      answers: normalizedAnswers,
+      currentQuestion: data.questions.length - 1,
+      status: passed ? "approved" : "failed",
+      score: results.correct,
+      totalQuestions: data.questions.length,
+      completedAt,
+      updatedAt: completedAt,
+      timeLeft: 0,
+    })
+
+    if (user) {
       const supabase = createClient()
       if (supabase) {
-        const results = calculateResults()
-        const passed = results.correct >= 27
-
         await supabase.from("test_results").insert({
           user_id: user.id,
           test_pack: id,
           category_code: data.category,
           score: results.correct,
           total_questions: data.questions.length,
-          passed: passed,
+          passed,
           test_mode: "practice",
         })
 
@@ -168,6 +264,9 @@ export default function TestPage() {
 
   const restartTest = () => {
     if (!data) return
+    if (id) {
+      clearStoredTestState(id)
+    }
     setCurrentQuestion(0)
     setSelectedAnswers(new Array(data.questions.length).fill(null))
     setTimeLeft(30 * 60)
@@ -180,13 +279,37 @@ export default function TestPage() {
     setShowQuestionPanel(false)
   }
 
-  const saveProgress = async () => {
-    if (!user || !id || !data) return
+  const saveProgress = useCallback(async () => {
+    if (!id || !data) return
+
+    const normalizedAnswers = data.questions.map((_, index) => selectedAnswers[index] ?? null)
+    const hasProgress = normalizedAnswers.some((answer) => answer !== null)
+
+    if (hasProgress) {
+      setStoredTestState(id, {
+        testId: id,
+        category: data.category,
+        answers: normalizedAnswers,
+        currentQuestion,
+        status: "incomplete",
+        totalQuestions: data.questions.length,
+        updatedAt: new Date().toISOString(),
+      })
+    } else if (id) {
+      clearStoredTestState(id)
+    }
+
+    if (!user) return
 
     const supabase = createClient()
     if (!supabase) return
 
-    const answersObj = selectedAnswers.reduce(
+    if (!hasProgress && currentQuestion === 0) {
+      await supabase.from("test_progress").delete().eq("user_id", user.id).eq("test_id", id)
+      return
+    }
+
+    const answersObj = normalizedAnswers.reduce(
       (acc, answer, index) => {
         if (answer !== null) {
           acc[index] = answer
@@ -203,14 +326,21 @@ export default function TestPage() {
       current_question: currentQuestion,
       answers: answersObj,
     })
-  }
+  }, [id, data, selectedAnswers, currentQuestion, user])
 
   useEffect(() => {
-    if (user && id && selectedAnswers.some((a) => a !== null)) {
-      const timeoutId = setTimeout(saveProgress, 1000)
-      return () => clearTimeout(timeoutId)
+    if (!id || !data || isFinished) return
+
+    if (!selectedAnswers.some((a) => a !== null)) {
+      return
     }
-  }, [selectedAnswers, currentQuestion, user, id])
+
+    const timeoutId = setTimeout(() => {
+      void saveProgress()
+    }, 600)
+
+    return () => clearTimeout(timeoutId)
+  }, [selectedAnswers, currentQuestion, id, data, isFinished, saveProgress])
 
   if (!id) {
     return (

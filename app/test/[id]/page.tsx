@@ -279,13 +279,20 @@ export default function TestPage() {
     setShowQuestionPanel(false)
   }
 
-  const saveProgress = useCallback(async () => {
-    if (!id || !data) return
+  const persistIncompleteState = useCallback(
+    (providedAnswers?: (string | null)[]) => {
+      if (!id || !data || isFinished) {
+        return false
+      }
 
-    const normalizedAnswers = data.questions.map((_, index) => selectedAnswers[index] ?? null)
-    const hasProgress = normalizedAnswers.some((answer) => answer !== null)
+      const normalizedAnswers = providedAnswers ?? data.questions.map((_, index) => selectedAnswers[index] ?? null)
+      const hasProgress = normalizedAnswers.some((answer) => answer !== null)
 
-    if (hasProgress) {
+      if (!hasProgress) {
+        clearStoredTestState(id)
+        return false
+      }
+
       setStoredTestState(id, {
         testId: id,
         category: data.category,
@@ -294,17 +301,26 @@ export default function TestPage() {
         status: "incomplete",
         totalQuestions: data.questions.length,
         updatedAt: new Date().toISOString(),
+        timeLeft,
       })
-    } else if (id) {
-      clearStoredTestState(id)
-    }
+
+      return true
+    },
+    [id, data, selectedAnswers, currentQuestion, timeLeft, isFinished],
+  )
+
+  const saveProgress = useCallback(async () => {
+    if (!id || !data || isFinished) return
+
+    const normalizedAnswers = data.questions.map((_, index) => selectedAnswers[index] ?? null)
+    const hasProgress = persistIncompleteState(normalizedAnswers)
 
     if (!user) return
 
     const supabase = createClient()
     if (!supabase) return
 
-    if (!hasProgress && currentQuestion === 0) {
+    if (!hasProgress) {
       await supabase.from("test_progress").delete().eq("user_id", user.id).eq("test_id", id)
       return
     }
@@ -326,7 +342,41 @@ export default function TestPage() {
       current_question: currentQuestion,
       answers: answersObj,
     })
-  }, [id, data, selectedAnswers, currentQuestion, user])
+  }, [id, data, selectedAnswers, user, persistIncompleteState, currentQuestion, isFinished])
+
+  useEffect(() => {
+    return () => {
+      if (!isFinished) {
+        persistIncompleteState()
+      }
+    }
+  }, [isFinished, persistIncompleteState])
+
+  useEffect(() => {
+    if (!id || !data || isFinished) {
+      return
+    }
+
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === "hidden") {
+        persistIncompleteState()
+      }
+    }
+
+    const handlePageHide = () => {
+      persistIncompleteState()
+    }
+
+    window.addEventListener("beforeunload", handlePageHide)
+    window.addEventListener("pagehide", handlePageHide)
+    document.addEventListener("visibilitychange", handleVisibilityChange)
+
+    return () => {
+      window.removeEventListener("beforeunload", handlePageHide)
+      window.removeEventListener("pagehide", handlePageHide)
+      document.removeEventListener("visibilitychange", handleVisibilityChange)
+    }
+  }, [id, data, isFinished, persistIncompleteState])
 
   useEffect(() => {
     if (!id || !data || isFinished) return

@@ -27,6 +27,55 @@ interface TestStatus {
   total_questions?: number
   current_question?: number
   completed_at?: string
+  updated_at?: string
+}
+
+const STATUS_PRIORITY: Record<TestStatus["status"], number> = {
+  approved: 3,
+  failed: 2,
+  incomplete: 1,
+}
+
+function parseStatusTimestamp(status: TestStatus) {
+  const iso = status.updated_at ?? status.completed_at
+  if (!iso) {
+    return null
+  }
+
+  const time = Date.parse(iso)
+  return Number.isNaN(time) ? null : time
+}
+
+function shouldUseIncomingStatus(current: TestStatus | undefined, incoming: TestStatus) {
+  if (!current) {
+    return true
+  }
+
+  const currentTime = parseStatusTimestamp(current)
+  const incomingTime = parseStatusTimestamp(incoming)
+
+  if (incomingTime !== null && currentTime !== null) {
+    if (incomingTime === currentTime) {
+      return STATUS_PRIORITY[incoming.status] >= STATUS_PRIORITY[current.status]
+    }
+    return incomingTime > currentTime
+  }
+
+  if (incomingTime !== null) {
+    return true
+  }
+
+  if (currentTime !== null) {
+    return false
+  }
+
+  return STATUS_PRIORITY[incoming.status] >= STATUS_PRIORITY[current.status]
+}
+
+function upsertStatus(map: Record<string, TestStatus>, status: TestStatus) {
+  if (shouldUseIncomingStatus(map[status.test_id], status)) {
+    map[status.test_id] = status
+  }
 }
 
 export default function CategoryPage({ params }: { params: { category: string } }) {
@@ -72,29 +121,37 @@ export default function CategoryPage({ params }: { params: { category: string } 
             .eq("category_code", params.category),
           supabase
             .from("test_progress")
-            .select("test_id, current_question")
+            .select("test_id, current_question, updated_at")
             .eq("user_id", user.id)
             .eq("category_code", params.category),
         ])
 
         results?.forEach((result) => {
-          statusMap[result.test_pack] = {
+          if (!result) {
+            return
+          }
+
+          upsertStatus(statusMap, {
             test_id: result.test_pack,
             status: result.passed ? "approved" : "failed",
-            score: result.score,
-            total_questions: result.total_questions,
-            completed_at: result.completed_at,
-          }
+            score: typeof result.score === "number" ? result.score : undefined,
+            total_questions: typeof result.total_questions === "number" ? result.total_questions : undefined,
+            completed_at: result.completed_at ?? undefined,
+            updated_at: result.completed_at ?? undefined,
+          })
         })
 
         progress?.forEach((prog) => {
-          if (!statusMap[prog.test_id]) {
-            statusMap[prog.test_id] = {
-              test_id: prog.test_id,
-              status: "incomplete",
-              current_question: prog.current_question,
-            }
+          if (!prog) {
+            return
           }
+
+          upsertStatus(statusMap, {
+            test_id: prog.test_id,
+            status: "incomplete",
+            current_question: typeof prog.current_question === "number" ? prog.current_question : undefined,
+            updated_at: prog.updated_at ?? undefined,
+          })
         })
       }
     }
@@ -105,36 +162,25 @@ export default function CategoryPage({ params }: { params: { category: string } 
       const totalQuestions = state.totalQuestions ?? state.answers?.length
 
       if (state.status === "approved" || state.status === "failed") {
-        const existing = statusMap[state.testId]
-        if (!existing || existing.status === "incomplete") {
-          statusMap[state.testId] = {
-            test_id: state.testId,
-            status: state.status,
-            score: state.score,
-            total_questions: totalQuestions,
-            completed_at: state.completedAt,
-          }
-        }
+        upsertStatus(statusMap, {
+          test_id: state.testId,
+          status: state.status,
+          score: typeof state.score === "number" ? state.score : undefined,
+          total_questions: typeof totalQuestions === "number" ? totalQuestions : undefined,
+          completed_at: state.completedAt,
+          updated_at: state.completedAt ?? state.updatedAt,
+        })
         return
       }
 
       if (state.status === "incomplete") {
-        const existing = statusMap[state.testId]
-        const entry: TestStatus = {
+        upsertStatus(statusMap, {
           test_id: state.testId,
           status: "incomplete",
           current_question: state.currentQuestion,
-          total_questions: totalQuestions,
-        }
-
-        if (!existing) {
-          statusMap[state.testId] = entry
-        } else if (existing.status === "incomplete") {
-          statusMap[state.testId] = {
-            ...existing,
-            ...entry,
-          }
-        }
+          total_questions: typeof totalQuestions === "number" ? totalQuestions : undefined,
+          updated_at: state.updatedAt,
+        })
       }
     })
 
@@ -323,9 +369,11 @@ export default function CategoryPage({ params }: { params: { category: string } 
 
                     {/* Fallos (Errors) */}
                     <div className="text-center">
-                      {status?.status === "approved" || status?.status === "failed" ? (
+                      {status && (status.status === "approved" || status.status === "failed") &&
+                      typeof status.total_questions === "number" &&
+                      typeof status.score === "number" ? (
                         <span className="text-sm">
-                          {status.total_questions && status.score ? status.total_questions - status.score : "-"}
+                          {status.total_questions - status.score}
                         </span>
                       ) : (
                         <span className="text-muted-foreground">-</span>

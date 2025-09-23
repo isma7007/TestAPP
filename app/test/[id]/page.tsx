@@ -482,7 +482,7 @@ export default function TestPage() {
       <header className="border-b bg-card/50 backdrop-blur-sm sticky top-0 z-50">
         <div className="container mx-auto px-4 py-4 flex items-center justify-between">
           <div className="flex items-center gap-4">
-            <Link href={\`/categories/\${data?.category || ""}\`}>
+            <Link href={`/categories/${data?.category || ""}`}>
               <Button variant="ghost" size="sm">
                 <ArrowLeft className="w-4 h-4 mr-2" />
                 Salir
@@ -528,7 +528,7 @@ export default function TestPage() {
       <main className="py-8 px-4">
         <div className="container mx-auto max-w-6xl">
           <div className="flex gap-6">
-            {showQuestionPanel and (
+            {showQuestionPanel && (
               <Card className="w-80 bg-card/50 backdrop-blur-sm h-fit sticky top-24">
                 <CardHeader className="pb-3">
                   <CardTitle className="text-lg flex items-center gap-2">
@@ -542,15 +542,15 @@ export default function TestPage() {
                       <button
                         key={index}
                         onClick={() => jumpToQuestion(index)}
-                        className={\`
+                        className={`
                           w-10 h-10 rounded-lg text-sm font-medium transition-all
-                          \${currentQuestion === index
+                          ${currentQuestion === index
                             ? "bg-primary text-primary-foreground ring-2 ring-primary/50"
                             : selectedAnswers[index] !== null
                               ? "bg-chart-4/20 text-chart-4 border border-chart-4/30 hover:bg-chart-4/30"
                               : "bg-muted text-muted-foreground hover:bg-muted/80 border border-border"
                           }
-                        \`}
+                        `}
                       >
                         {index + 1}
                       </button>
@@ -608,11 +608,11 @@ export default function TestPage() {
                       <button
                         key={index}
                         onClick={() => handleAnswerSelect(option)}
-                        className={\`w-full p-4 text-left rounded-lg border-2 transition-all hover:bg-muted/50 \${selectedAnswers[currentQuestion] === option ? "border-primary bg-primary/5 text-primary" : "border-border bg-card hover:border-border/80"}\`}
+                        className={`w-full p-4 text-left rounded-lg border-2 transition-all hover:bg-muted/50 ${selectedAnswers[currentQuestion] === option ? "border-primary bg-primary/5 text-primary" : "border-border bg-card hover:border-border/80"}`}
                       >
                         <div className="flex items-center gap-3">
                           <div
-                            className={\`w-6 h-6 rounded-full border-2 flex items-center justify-center text-xs font-medium \${selectedAnswers[currentQuestion] === option ? "border-primary bg-primary text-primary-foreground" : "border-muted-foreground text-muted-foreground"}\`}
+                            className={`w-6 h-6 rounded-full border-2 flex items-center justify-center text-xs font-medium ${selectedAnswers[currentQuestion] === option ? "border-primary bg-primary text-primary-foreground" : "border-muted-foreground text-muted-foreground"}`}
                           >
                             {String.fromCharCode(65 + index)}
                           </div>

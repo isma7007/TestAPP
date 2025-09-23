@@ -277,9 +277,7 @@ export default function CategoryPage({ params }: { params: { category: string } 
                     <ToggleLeft className="w-8 h-8 text-muted-foreground" />
                   )}
                 </Button>
-                <span
-                  className={`text-sm ${testMode === "exam" ? "text-orange-500 font-medium" : "text-muted-foreground"}`}
-                >
+                <span className={`text-sm ${testMode === "exam" ? "text-orange-500 font-medium" : "text-muted-foreground"}`}>
                   examen
                 </span>
               </div>

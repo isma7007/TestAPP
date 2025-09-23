@@ -15,19 +15,31 @@ export interface StoredTestState {
 
 const STORAGE_KEY = "autotest-test-state"
 
+export const LOCAL_TEST_STORAGE_KEY = STORAGE_KEY
+export const TEST_STATE_EVENT_NAME = "autotest:test-state-changed"
+
 const isBrowser = typeof window !== "undefined"
 
-function readStorage(): Record<string, StoredTestState> {
-  if (!isBrowser) {
-    return {}
-  }
+type TestStateChangeDetail = {
+  testId: string
+  state: StoredTestState | null
+  previousState: StoredTestState | null
+}
 
+function emitChange(testId: string, state: StoredTestState | null, previousState: StoredTestState | null) {
+  if (!isBrowser) return
+
+  const event: CustomEvent<TestStateChangeDetail> = new CustomEvent(TEST_STATE_EVENT_NAME, {
+    detail: { testId, state, previousState },
+  })
+  window.dispatchEvent(event)
+}
+
+function readStorage(): Record<string, StoredTestState> {
+  if (!isBrowser) return {}
   try {
     const raw = window.localStorage.getItem(STORAGE_KEY)
-    if (!raw) {
-      return {}
-    }
-
+    if (!raw) return {}
     const parsed = JSON.parse(raw)
     if (parsed && typeof parsed === "object") {
       return parsed as Record<string, StoredTestState>
@@ -35,15 +47,11 @@ function readStorage(): Record<string, StoredTestState> {
   } catch (error) {
     console.warn("Failed to read stored test state", error)
   }
-
   return {}
 }
 
 function writeStorage(map: Record<string, StoredTestState>) {
-  if (!isBrowser) {
-    return
-  }
-
+  if (!isBrowser) return
   try {
     window.localStorage.setItem(STORAGE_KEY, JSON.stringify(map))
   } catch (error) {
@@ -54,11 +62,7 @@ function writeStorage(map: Record<string, StoredTestState>) {
 export function getStoredTestState(testId: string): StoredTestState | null {
   const allStates = readStorage()
   const state = allStates[testId]
-
-  if (!state) {
-    return null
-  }
-
+  if (!state) return null
   return {
     ...state,
     testId,
@@ -67,16 +71,16 @@ export function getStoredTestState(testId: string): StoredTestState | null {
 }
 
 export function setStoredTestState(testId: string, state: StoredTestState | null): StoredTestState | null {
-  if (!isBrowser) {
-    return null
-  }
+  if (!isBrowser) return null
 
   const allStates = readStorage()
 
   if (!state) {
-    if (testId in allStates) {
+    const existing = allStates[testId] || null
+    if (existing) {
       delete allStates[testId]
       writeStorage(allStates)
+      emitChange(testId, null, existing)
     }
     return null
   }
@@ -88,8 +92,11 @@ export function setStoredTestState(testId: string, state: StoredTestState | null
     answers: Array.isArray(state.answers) ? [...state.answers] : [],
   }
 
+  const previous = allStates[testId] || null
   allStates[testId] = normalized
   writeStorage(allStates)
+  emitChange(testId, normalized, previous)
+
   return normalized
 }
 
@@ -99,7 +106,6 @@ export function clearStoredTestState(testId: string) {
 
 export function getStoredTestsByCategory(category: string): StoredTestState[] {
   const allStates = readStorage()
-
   return Object.values(allStates)
     .filter((state) => state.category === category)
     .map((state) => ({

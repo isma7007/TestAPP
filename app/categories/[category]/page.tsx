@@ -1,13 +1,18 @@
 "use client"
 
-import { useEffect, useState } from "react"
+import { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import Link from "next/link"
 import { Card, CardContent, CardHeader } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { ArrowLeft, BookOpen, CheckCircle, XCircle, Clock3, ChevronRight, ToggleLeft, ToggleRight } from "lucide-react"
 import { createClient } from "@/lib/supabase/client"
-import { getStoredTestsByCategory } from "@/lib/local-test-storage"
+import {
+  getStoredTestsByCategory,
+  LOCAL_TEST_STORAGE_KEY,
+  TEST_STATE_EVENT_NAME,
+  type StoredTestState,
+} from "@/lib/local-test-storage"
 
 interface TestSummary {
   id: string
@@ -22,120 +27,219 @@ interface TestStatus {
   total_questions?: number
   current_question?: number
   completed_at?: string
+  updated_at?: string
+}
+
+const STATUS_PRIORITY: Record<TestStatus["status"], number> = {
+  approved: 3,
+  failed: 2,
+  incomplete: 1,
+}
+
+function parseStatusTimestamp(status: TestStatus) {
+  const iso = status.updated_at ?? status.completed_at
+  if (!iso) return null
+  const time = Date.parse(iso)
+  return Number.isNaN(time) ? null : time
+}
+
+function shouldUseIncomingStatus(current: TestStatus | undefined, incoming: TestStatus) {
+  if (!current) return true
+
+  const currentTime = parseStatusTimestamp(current)
+  const incomingTime = parseStatusTimestamp(incoming)
+
+  if (incomingTime !== null && currentTime !== null) {
+    if (incomingTime === currentTime) {
+      return STATUS_PRIORITY[incoming.status] >= STATUS_PRIORITY[current.status]
+    }
+    return incomingTime > currentTime
+  }
+
+  if (incomingTime !== null) return true
+  if (currentTime !== null) return false
+
+  return STATUS_PRIORITY[incoming.status] >= STATUS_PRIORITY[current.status]
+}
+
+function upsertStatus(map: Record<string, TestStatus>, status: TestStatus) {
+  if (shouldUseIncomingStatus(map[status.test_id], status)) {
+    map[status.test_id] = status
+  }
 }
 
 export default function CategoryPage({ params }: { params: { category: string } }) {
-  const [tests, setTests] = useState<TestSummary[]>([])
+  const tests = useMemo(() => {
+    const generated: TestSummary[] = []
+    for (let i = 1; i <= 100; i++) {
+      generated.push({
+        id: `test${i}`,
+        title: `Test ${String(i).padStart(3, "0")}`,
+        category: params.category,
+      })
+    }
+    return generated
+  }, [params.category])
+
   const [testStatuses, setTestStatuses] = useState<Record<string, TestStatus>>({})
   const [loading, setLoading] = useState(true)
   const [testMode, setTestMode] = useState<"study" | "exam">("exam")
+  const isMountedRef = useRef(true)
+  const latestRequestRef = useRef(0)
+  const spinnerRequestRef = useRef<number | null>(null)
 
   useEffect(() => {
-    async function loadData() {
-      try {
-        const generatedTests: TestSummary[] = []
-        for (let i = 1; i <= 100; i++) {
-          generatedTests.push({
-            id: `test${i}`,
-            title: `Test ${String(i).padStart(3, "0")}`,
-            category: params.category,
+    return () => {
+      isMountedRef.current = false
+    }
+  }, [])
+
+  const fetchStatuses = useCallback(async () => {
+    const statusMap: Record<string, TestStatus> = {}
+    const supabase = createClient()
+
+    if (supabase) {
+      const {
+        data: { user },
+      } = await supabase.auth.getUser()
+
+      if (user) {
+        const [{ data: results }, { data: progress }] = await Promise.all([
+          supabase
+            .from("test_results")
+            .select("test_pack, passed, score, total_questions, completed_at")
+            .eq("user_id", user.id)
+            .eq("category_code", params.category),
+          supabase
+            .from("test_progress")
+            .select("test_id, current_question, updated_at")
+            .eq("user_id", user.id)
+            .eq("category_code", params.category),
+        ])
+
+        results?.forEach((result: any) => {
+          if (!result) return
+          upsertStatus(statusMap, {
+            test_id: result.test_pack,
+            status: result.passed ? "approved" : "failed",
+            score: typeof result.score === "number" ? result.score : undefined,
+            total_questions: typeof result.total_questions === "number" ? result.total_questions : undefined,
+            completed_at: result.completed_at ?? undefined,
+            updated_at: result.completed_at ?? undefined,
           })
-        }
-        setTests(generatedTests)
-
-        const supabase = createClient()
-        const statusMap: Record<string, TestStatus> = {}
-
-        if (supabase) {
-          const {
-            data: { user },
-          } = await supabase.auth.getUser()
-          if (user) {
-            // Load completed tests
-            const { data: results } = await supabase
-              .from("test_results")
-              .select("test_pack, passed, score, total_questions, completed_at")
-              .eq("user_id", user.id)
-              .eq("category_code", params.category)
-
-            // Load pending tests
-            const { data: progress } = await supabase
-              .from("test_progress")
-              .select("test_id, current_question")
-              .eq("user_id", user.id)
-              .eq("category_code", params.category)
-
-            results?.forEach((result) => {
-              statusMap[result.test_pack] = {
-                test_id: result.test_pack,
-                status: result.passed ? "approved" : "failed",
-                score: result.score,
-                total_questions: result.total_questions,
-                completed_at: result.completed_at,
-              }
-            })
-
-            progress?.forEach((prog) => {
-              if (!statusMap[prog.test_id]) {
-                statusMap[prog.test_id] = {
-                  test_id: prog.test_id,
-                  status: "incomplete",
-                  current_question: prog.current_question,
-                }
-              }
-            })
-          }
-        }
-
-        const localStates = getStoredTestsByCategory(params.category)
-
-        localStates.forEach((state) => {
-          const totalQuestions = state.totalQuestions ?? state.answers?.length
-
-          if (state.status === "approved" || state.status === "failed") {
-            const existing = statusMap[state.testId]
-            if (!existing || existing.status === "incomplete") {
-              statusMap[state.testId] = {
-                test_id: state.testId,
-                status: state.status,
-                score: state.score,
-                total_questions: totalQuestions,
-                completed_at: state.completedAt,
-              }
-            }
-            return
-          }
-
-          if (state.status === "incomplete") {
-            const existing = statusMap[state.testId]
-            const entry: TestStatus = {
-              test_id: state.testId,
-              status: "incomplete",
-              current_question: state.currentQuestion,
-              total_questions: totalQuestions,
-            }
-
-            if (!existing) {
-              statusMap[state.testId] = entry
-            } else if (existing.status === "incomplete") {
-              statusMap[state.testId] = {
-                ...existing,
-                ...entry,
-              }
-            }
-          }
         })
 
-        setTestStatuses(statusMap)
-      } catch (error) {
-        console.error("Error cargando datos:", error)
-      } finally {
-        setLoading(false)
+        progress?.forEach((prog: any) => {
+          if (!prog) return
+          upsertStatus(statusMap, {
+            test_id: prog.test_id,
+            status: "incomplete",
+            current_question: typeof prog.current_question === "number" ? prog.current_question : undefined,
+            updated_at: prog.updated_at ?? undefined,
+          })
+        })
       }
     }
 
-    loadData()
+    const localStates = getStoredTestsByCategory(params.category)
+    localStates.forEach((state) => {
+      const totalQuestions = state.totalQuestions ?? state.answers?.length
+
+      if (state.status === "approved" || state.status === "failed") {
+        upsertStatus(statusMap, {
+          test_id: state.testId,
+          status: state.status,
+          score: typeof state.score === "number" ? state.score : undefined,
+          total_questions: typeof totalQuestions === "number" ? totalQuestions : undefined,
+          completed_at: state.completedAt,
+          updated_at: state.completedAt ?? state.updatedAt,
+        })
+        return
+      }
+
+      if (state.status === "incomplete") {
+        upsertStatus(statusMap, {
+          test_id: state.testId,
+          status: "incomplete",
+          current_question: state.currentQuestion,
+          total_questions: typeof totalQuestions === "number" ? totalQuestions : undefined,
+          updated_at: state.updatedAt,
+        })
+      }
+    })
+
+    return statusMap
   }, [params.category])
+
+  const refreshStatuses = useCallback(
+    async (options?: { withLoading?: boolean }) => {
+      const withLoading = options?.withLoading ?? false
+      const requestId = latestRequestRef.current + 1
+      latestRequestRef.current = requestId
+
+      if (withLoading) {
+        spinnerRequestRef.current = requestId
+        setLoading(true)
+      }
+
+      try {
+        const statusMap = await fetchStatuses()
+        if (!isMountedRef.current || requestId !== latestRequestRef.current) return
+        setTestStatuses(statusMap)
+      } catch (error) {
+        if (isMountedRef.current) {
+          console.error("Error cargando datos:", error)
+        }
+      } finally {
+        if (!isMountedRef.current) return
+
+        if (spinnerRequestRef.current === requestId) {
+          spinnerRequestRef.current = null
+          setLoading(false)
+        } else if (withLoading && spinnerRequestRef.current === null) {
+          setLoading(false)
+        }
+      }
+    },
+    [fetchStatuses],
+  )
+
+  useEffect(() => {
+    void refreshStatuses({ withLoading: true })
+  }, [refreshStatuses])
+
+  useEffect(() => {
+    const handleImmediateRefresh = () => void refreshStatuses()
+    const handleVisibilityChange = () => {
+      if (!document.hidden) void refreshStatuses()
+    }
+    const handleStorage = (event: StorageEvent) => {
+      if (!event.key || event.key === LOCAL_TEST_STORAGE_KEY) {
+        void refreshStatuses()
+      }
+    }
+    const handleTestStateChange: EventListener = (event) => {
+      const detail = (event as CustomEvent<{ state: StoredTestState | null; previousState: StoredTestState | null }>).detail
+      const categoryFromEvent = detail?.state?.category ?? detail?.previousState?.category
+      if (!categoryFromEvent || categoryFromEvent === params.category) {
+        void refreshStatuses()
+      }
+    }
+
+    window.addEventListener("focus", handleImmediateRefresh)
+    window.addEventListener("pageshow", handleImmediateRefresh)
+    window.addEventListener("visibilitychange", handleVisibilityChange)
+    window.addEventListener("storage", handleStorage)
+    window.addEventListener(TEST_STATE_EVENT_NAME, handleTestStateChange)
+
+    return () => {
+      window.removeEventListener("focus", handleImmediateRefresh)
+      window.removeEventListener("pageshow", handleImmediateRefresh)
+      window.removeEventListener("visibilitychange", handleVisibilityChange)
+      window.removeEventListener("storage", handleStorage)
+      window.removeEventListener(TEST_STATE_EVENT_NAME, handleTestStateChange)
+    }
+  }, [params.category, refreshStatuses])
 
   const approvedCount = Object.values(testStatuses).filter((s) => s.status === "approved").length
   const failedCount = Object.values(testStatuses).filter((s) => s.status === "failed").length
@@ -189,9 +293,7 @@ export default function CategoryPage({ params }: { params: { category: string } 
                     <ToggleLeft className="w-8 h-8 text-muted-foreground" />
                   )}
                 </Button>
-                <span
-                  className={`text-sm ${testMode === "exam" ? "text-orange-500 font-medium" : "text-muted-foreground"}`}
-                >
+                <span className={`text-sm ${testMode === "exam" ? "text-orange-500 font-medium" : "text-muted-foreground"}`}>
                   examen
                 </span>
               </div>
@@ -204,7 +306,6 @@ export default function CategoryPage({ params }: { params: { category: string } 
       </header>
 
       <main className="container mx-auto px-6 py-8">
-        {/* Professional Table Interface */}
         <Card className="bg-card/80 backdrop-blur-sm border-border/50">
           <CardHeader className="bg-blue-600 text-white rounded-t-lg">
             <div className="grid grid-cols-4 gap-4 text-center font-semibold">
@@ -225,7 +326,6 @@ export default function CategoryPage({ params }: { params: { category: string } 
                     key={test.id}
                     className="grid grid-cols-4 gap-4 items-center py-3 px-6 hover:bg-muted/30 transition-colors group"
                   >
-                    {/* Test Number */}
                     <div className="flex items-center gap-3">
                       <div className="w-16 h-10 bg-gray-600 text-white rounded flex items-center justify-center font-mono text-sm">
                         {testNumber}
@@ -235,18 +335,18 @@ export default function CategoryPage({ params }: { params: { category: string } 
                       {status?.status === "incomplete" && <Clock3 className="w-4 h-4 text-amber-500" />}
                     </div>
 
-                    {/* Fallos (Errors) */}
                     <div className="text-center">
-                      {status?.status === "approved" || status?.status === "failed" ? (
+                      {status && (status.status === "approved" || status.status === "failed") &&
+                      typeof status.total_questions === "number" &&
+                      typeof status.score === "number" ? (
                         <span className="text-sm">
-                          {status.total_questions && status.score ? status.total_questions - status.score : "-"}
+                          {status.total_questions - status.score}
                         </span>
                       ) : (
                         <span className="text-muted-foreground">-</span>
                       )}
                     </div>
 
-                    {/* Realizado (Completed) */}
                     <div className="text-center">
                       {status?.status === "approved" && (
                         <Badge className="bg-green-100 text-green-800 border-green-200">Aprobado</Badge>
@@ -260,7 +360,6 @@ export default function CategoryPage({ params }: { params: { category: string } 
                       {!status && <span className="text-muted-foreground text-sm">No realizado</span>}
                     </div>
 
-                    {/* Último (Last) */}
                     <div className="flex items-center justify-between">
                       <div className="text-center flex-1">
                         {status?.completed_at ? (
@@ -296,7 +395,6 @@ export default function CategoryPage({ params }: { params: { category: string } 
           </CardContent>
         </Card>
 
-        {/* Stats Summary */}
         <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mt-8">
           <Card className="bg-card/50 backdrop-blur-sm border-primary/20">
             <CardContent className="p-6">

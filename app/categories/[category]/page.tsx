@@ -38,18 +38,13 @@ const STATUS_PRIORITY: Record<TestStatus["status"], number> = {
 
 function parseStatusTimestamp(status: TestStatus) {
   const iso = status.updated_at ?? status.completed_at
-  if (!iso) {
-    return null
-  }
-
+  if (!iso) return null
   const time = Date.parse(iso)
   return Number.isNaN(time) ? null : time
 }
 
 function shouldUseIncomingStatus(current: TestStatus | undefined, incoming: TestStatus) {
-  if (!current) {
-    return true
-  }
+  if (!current) return true
 
   const currentTime = parseStatusTimestamp(current)
   const incomingTime = parseStatusTimestamp(incoming)
@@ -61,13 +56,8 @@ function shouldUseIncomingStatus(current: TestStatus | undefined, incoming: Test
     return incomingTime > currentTime
   }
 
-  if (incomingTime !== null) {
-    return true
-  }
-
-  if (currentTime !== null) {
-    return false
-  }
+  if (incomingTime !== null) return true
+  if (currentTime !== null) return false
 
   return STATUS_PRIORITY[incoming.status] >= STATUS_PRIORITY[current.status]
 }
@@ -90,6 +80,7 @@ export default function CategoryPage({ params }: { params: { category: string } 
     }
     return generated
   }, [params.category])
+
   const [testStatuses, setTestStatuses] = useState<Record<string, TestStatus>>({})
   const [loading, setLoading] = useState(true)
   const [testMode, setTestMode] = useState<"study" | "exam">("exam")
@@ -126,11 +117,8 @@ export default function CategoryPage({ params }: { params: { category: string } 
             .eq("category_code", params.category),
         ])
 
-        results?.forEach((result) => {
-          if (!result) {
-            return
-          }
-
+        results?.forEach((result: any) => {
+          if (!result) return
           upsertStatus(statusMap, {
             test_id: result.test_pack,
             status: result.passed ? "approved" : "failed",
@@ -141,11 +129,8 @@ export default function CategoryPage({ params }: { params: { category: string } 
           })
         })
 
-        progress?.forEach((prog) => {
-          if (!prog) {
-            return
-          }
-
+        progress?.forEach((prog: any) => {
+          if (!prog) return
           upsertStatus(statusMap, {
             test_id: prog.test_id,
             status: "incomplete",
@@ -157,7 +142,6 @@ export default function CategoryPage({ params }: { params: { category: string } 
     }
 
     const localStates = getStoredTestsByCategory(params.category)
-
     localStates.forEach((state) => {
       const totalQuestions = state.totalQuestions ?? state.answers?.length
 
@@ -200,20 +184,14 @@ export default function CategoryPage({ params }: { params: { category: string } 
 
       try {
         const statusMap = await fetchStatuses()
-
-        if (!isMountedRef.current || requestId !== latestRequestRef.current) {
-          return
-        }
-
+        if (!isMountedRef.current || requestId !== latestRequestRef.current) return
         setTestStatuses(statusMap)
       } catch (error) {
         if (isMountedRef.current) {
           console.error("Error cargando datos:", error)
         }
       } finally {
-        if (!isMountedRef.current) {
-          return
-        }
+        if (!isMountedRef.current) return
 
         if (spinnerRequestRef.current === requestId) {
           spinnerRequestRef.current = null
@@ -231,26 +209,18 @@ export default function CategoryPage({ params }: { params: { category: string } 
   }, [refreshStatuses])
 
   useEffect(() => {
-    const handleImmediateRefresh = () => {
-      void refreshStatuses()
-    }
-
+    const handleImmediateRefresh = () => void refreshStatuses()
     const handleVisibilityChange = () => {
-      if (!document.hidden) {
-        void refreshStatuses()
-      }
+      if (!document.hidden) void refreshStatuses()
     }
-
     const handleStorage = (event: StorageEvent) => {
       if (!event.key || event.key === LOCAL_TEST_STORAGE_KEY) {
         void refreshStatuses()
       }
     }
-
     const handleTestStateChange: EventListener = (event) => {
       const detail = (event as CustomEvent<{ state: StoredTestState | null; previousState: StoredTestState | null }>).detail
       const categoryFromEvent = detail?.state?.category ?? detail?.previousState?.category
-
       if (!categoryFromEvent || categoryFromEvent === params.category) {
         void refreshStatuses()
       }
@@ -336,7 +306,6 @@ export default function CategoryPage({ params }: { params: { category: string } 
       </header>
 
       <main className="container mx-auto px-6 py-8">
-        {/* Professional Table Interface */}
         <Card className="bg-card/80 backdrop-blur-sm border-border/50">
           <CardHeader className="bg-blue-600 text-white rounded-t-lg">
             <div className="grid grid-cols-4 gap-4 text-center font-semibold">
@@ -357,7 +326,6 @@ export default function CategoryPage({ params }: { params: { category: string } 
                     key={test.id}
                     className="grid grid-cols-4 gap-4 items-center py-3 px-6 hover:bg-muted/30 transition-colors group"
                   >
-                    {/* Test Number */}
                     <div className="flex items-center gap-3">
                       <div className="w-16 h-10 bg-gray-600 text-white rounded flex items-center justify-center font-mono text-sm">
                         {testNumber}
@@ -367,7 +335,6 @@ export default function CategoryPage({ params }: { params: { category: string } 
                       {status?.status === "incomplete" && <Clock3 className="w-4 h-4 text-amber-500" />}
                     </div>
 
-                    {/* Fallos (Errors) */}
                     <div className="text-center">
                       {status && (status.status === "approved" || status.status === "failed") &&
                       typeof status.total_questions === "number" &&
@@ -380,7 +347,6 @@ export default function CategoryPage({ params }: { params: { category: string } 
                       )}
                     </div>
 
-                    {/* Realizado (Completed) */}
                     <div className="text-center">
                       {status?.status === "approved" && (
                         <Badge className="bg-green-100 text-green-800 border-green-200">Aprobado</Badge>
@@ -394,7 +360,6 @@ export default function CategoryPage({ params }: { params: { category: string } 
                       {!status && <span className="text-muted-foreground text-sm">No realizado</span>}
                     </div>
 
-                    {/* Último (Last) */}
                     <div className="flex items-center justify-between">
                       <div className="text-center flex-1">
                         {status?.completed_at ? (
@@ -430,7 +395,6 @@ export default function CategoryPage({ params }: { params: { category: string } 
           </CardContent>
         </Card>
 
-        {/* Stats Summary */}
         <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mt-8">
           <Card className="bg-card/50 backdrop-blur-sm border-primary/20">
             <CardContent className="p-6">

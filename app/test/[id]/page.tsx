@@ -96,7 +96,7 @@ export default function TestPage() {
             const answersArray = new Array(data.questions.length).fill(null)
 
             if (progress.answers) {
-              Object.entries(progress.answers).forEach(([key, value]) => {
+              Object.entries(progress.answers as Record<string, string>).forEach(([key, value]) => {
                 const index = Number(key)
                 if (!Number.isNaN(index) && index < answersArray.length) {
                   answersArray[index] = value as string
@@ -104,7 +104,7 @@ export default function TestPage() {
               })
             }
 
-            const current = Math.min(progress.current_question || 0, data.questions.length - 1)
+            const current = Math.min((progress.current_question as number) || 0, data.questions.length - 1)
 
             setSelectedAnswers(answersArray)
             setCurrentQuestion(current)
@@ -200,6 +200,25 @@ export default function TestPage() {
     }
   }
 
+  const calculateResults = () => {
+    if (!data) return { correct: 0, incorrect: 0, unanswered: 0 }
+    let correct = 0
+    let incorrect = 0
+    let unanswered = 0
+
+    selectedAnswers.forEach((ans, i) => {
+      if (ans === null) {
+        unanswered++
+      } else if (ans === data.questions[i].answer) {
+        correct++
+      } else {
+        incorrect++
+      }
+    })
+
+    return { correct, incorrect, unanswered }
+  }
+
   const finishTest = async () => {
     if (!data || !id) return
 
@@ -243,25 +262,6 @@ export default function TestPage() {
     }
   }
 
-  const calculateResults = () => {
-    if (!data) return { correct: 0, incorrect: 0, unanswered: 0 }
-    let correct = 0
-    let incorrect = 0
-    let unanswered = 0
-
-    selectedAnswers.forEach((ans, i) => {
-      if (ans === null) {
-        unanswered++
-      } else if (ans === data.questions[i].answer) {
-        correct++
-      } else {
-        incorrect++
-      }
-    })
-
-    return { correct, incorrect, unanswered }
-  }
-
   const restartTest = () => {
     if (!data) return
     if (id) {
@@ -281,9 +281,7 @@ export default function TestPage() {
 
   const persistIncompleteState = useCallback(
     (providedAnswers?: (string | null)[]) => {
-      if (!id || !data || isFinished) {
-        return false
-      }
+      if (!id || !data || isFinished) return false
 
       const normalizedAnswers = providedAnswers ?? data.questions.map((_, index) => selectedAnswers[index] ?? null)
       const hasProgress = normalizedAnswers.some((answer) => answer !== null)
@@ -325,15 +323,10 @@ export default function TestPage() {
       return
     }
 
-    const answersObj = normalizedAnswers.reduce(
-      (acc, answer, index) => {
-        if (answer !== null) {
-          acc[index] = answer
-        }
-        return acc
-      },
-      {} as Record<number, string>,
-    )
+    const answersObj = normalizedAnswers.reduce((acc, answer, index) => {
+      if (answer !== null) acc[index] = answer
+      return acc
+    }, {} as Record<number, string>)
 
     await supabase.from("test_progress").upsert({
       user_id: user.id,
@@ -353,9 +346,7 @@ export default function TestPage() {
   }, [isFinished, persistIncompleteState])
 
   useEffect(() => {
-    if (!id || !data || isFinished) {
-      return
-    }
+    if (!id || !data || isFinished) return
 
     const handleVisibilityChange = () => {
       if (document.visibilityState === "hidden") {
@@ -380,10 +371,7 @@ export default function TestPage() {
 
   useEffect(() => {
     if (!id || !data || isFinished) return
-
-    if (!selectedAnswers.some((a) => a !== null)) {
-      return
-    }
+    if (!selectedAnswers.some((a) => a !== null)) return
 
     const timeoutId = setTimeout(() => {
       void saveProgress()
@@ -494,7 +482,7 @@ export default function TestPage() {
       <header className="border-b bg-card/50 backdrop-blur-sm sticky top-0 z-50">
         <div className="container mx-auto px-4 py-4 flex items-center justify-between">
           <div className="flex items-center gap-4">
-            <Link href={`/categories/${data?.category || ""}`}>
+            <Link href={\`/categories/\${data?.category || ""}\`}>
               <Button variant="ghost" size="sm">
                 <ArrowLeft className="w-4 h-4 mr-2" />
                 Salir
@@ -540,7 +528,7 @@ export default function TestPage() {
       <main className="py-8 px-4">
         <div className="container mx-auto max-w-6xl">
           <div className="flex gap-6">
-            {showQuestionPanel && (
+            {showQuestionPanel and (
               <Card className="w-80 bg-card/50 backdrop-blur-sm h-fit sticky top-24">
                 <CardHeader className="pb-3">
                   <CardTitle className="text-lg flex items-center gap-2">
@@ -554,16 +542,15 @@ export default function TestPage() {
                       <button
                         key={index}
                         onClick={() => jumpToQuestion(index)}
-                        className={`
+                        className={\`
                           w-10 h-10 rounded-lg text-sm font-medium transition-all
-                          ${
-                            currentQuestion === index
-                              ? "bg-primary text-primary-foreground ring-2 ring-primary/50"
-                              : selectedAnswers[index] !== null
-                                ? "bg-chart-4/20 text-chart-4 border border-chart-4/30 hover:bg-chart-4/30"
-                                : "bg-muted text-muted-foreground hover:bg-muted/80 border border-border"
+                          \${currentQuestion === index
+                            ? "bg-primary text-primary-foreground ring-2 ring-primary/50"
+                            : selectedAnswers[index] !== null
+                              ? "bg-chart-4/20 text-chart-4 border border-chart-4/30 hover:bg-chart-4/30"
+                              : "bg-muted text-muted-foreground hover:bg-muted/80 border border-border"
                           }
-                        `}
+                        \`}
                       >
                         {index + 1}
                       </button>
@@ -621,19 +608,11 @@ export default function TestPage() {
                       <button
                         key={index}
                         onClick={() => handleAnswerSelect(option)}
-                        className={`w-full p-4 text-left rounded-lg border-2 transition-all hover:bg-muted/50 ${
-                          selectedAnswers[currentQuestion] === option
-                            ? "border-primary bg-primary/5 text-primary"
-                            : "border-border bg-card hover:border-border/80"
-                        }`}
+                        className={\`w-full p-4 text-left rounded-lg border-2 transition-all hover:bg-muted/50 \${selectedAnswers[currentQuestion] === option ? "border-primary bg-primary/5 text-primary" : "border-border bg-card hover:border-border/80"}\`}
                       >
                         <div className="flex items-center gap-3">
                           <div
-                            className={`w-6 h-6 rounded-full border-2 flex items-center justify-center text-xs font-medium ${
-                              selectedAnswers[currentQuestion] === option
-                                ? "border-primary bg-primary text-primary-foreground"
-                                : "border-muted-foreground text-muted-foreground"
-                            }`}
+                            className={\`w-6 h-6 rounded-full border-2 flex items-center justify-center text-xs font-medium \${selectedAnswers[currentQuestion] === option ? "border-primary bg-primary text-primary-foreground" : "border-muted-foreground text-muted-foreground"}\`}
                           >
                             {String.fromCharCode(65 + index)}
                           </div>

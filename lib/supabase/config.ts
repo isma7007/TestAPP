@@ -3,6 +3,22 @@ export type SupabaseConfig = {
   anonKey: string
 }
 
+export type SupabaseConfigSource = "env" | "runtime" | "default"
+
+export type ResolvedSupabaseConfig = {
+  config: SupabaseConfig
+  sources: {
+    url: SupabaseConfigSource
+    anonKey: SupabaseConfigSource
+  }
+}
+
+export const DEFAULT_SUPABASE_CONFIG: Readonly<SupabaseConfig> = Object.freeze({
+  url: "https://mddlxrtpaczpkhcdayvb.supabase.co",
+  anonKey:
+    "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im1kZGx4cnRwYWN6cGtoY2RheXZiIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTg0OTk1MzAsImV4cCI6MjA3NDA3NTUzMH0.3LyyGk8o-PiAmJcydDnRk88C_HXjcX2YUWoACu1Y15Y",
+})
+
 const missingConfigWarnings = new Set<string>()
 
 
@@ -31,20 +47,62 @@ function normalizeEnvValue(value: string | undefined) {
   return normalized
 }
 
-export function getSupabaseConfig(): SupabaseConfig | null {
-  const url =
-    normalizeEnvValue(process.env.NEXT_PUBLIC_SUPABASE_URL ?? process.env.SUPABASE_URL) || readBrowserEnv('NEXT_PUBLIC_SUPABASE_URL')
-  const anonKey =
-    normalizeEnvValue(process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ?? process.env.SUPABASE_ANON_KEY) || readBrowserEnv('NEXT_PUBLIC_SUPABASE_ANON_KEY')
+type ResolvedValue = {
+  value: string
+  source: SupabaseConfigSource
+}
+
+function resolveValue(options: {
+  env?: string
+  runtime?: string
+  fallback?: string
+}): ResolvedValue | null {
+  if (options.env) {
+    return { value: options.env, source: "env" }
+  }
+
+  if (options.runtime) {
+    return { value: options.runtime, source: "runtime" }
+  }
+
+  if (options.fallback) {
+    return { value: options.fallback, source: "default" }
+  }
+
+  return null
+}
+
+export function resolveSupabaseConfig(): ResolvedSupabaseConfig | null {
+  const url = resolveValue({
+    env: normalizeEnvValue(process.env.NEXT_PUBLIC_SUPABASE_URL ?? process.env.SUPABASE_URL),
+    runtime: normalizeEnvValue(readBrowserEnv("NEXT_PUBLIC_SUPABASE_URL")),
+    fallback: normalizeEnvValue(DEFAULT_SUPABASE_CONFIG.url),
+  })
+
+  const anonKey = resolveValue({
+    env: normalizeEnvValue(process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ?? process.env.SUPABASE_ANON_KEY),
+    runtime: normalizeEnvValue(readBrowserEnv("NEXT_PUBLIC_SUPABASE_ANON_KEY")),
+    fallback: normalizeEnvValue(DEFAULT_SUPABASE_CONFIG.anonKey),
+  })
 
   if (!url || !anonKey) {
     return null
   }
 
   return {
-    url,
-    anonKey,
+    config: {
+      url: url.value,
+      anonKey: anonKey.value,
+    },
+    sources: {
+      url: url.source,
+      anonKey: anonKey.source,
+    },
   }
+}
+
+export function getSupabaseConfig(): SupabaseConfig | null {
+  return resolveSupabaseConfig()?.config ?? null
 }
 
 export function warnMissingSupabaseConfig(context: string) {

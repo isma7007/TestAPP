@@ -1,8 +1,9 @@
 import { NextResponse, type NextRequest } from "next/server"
-import { getSupabaseConfig, warnMissingSupabaseConfig } from "./config"
+import { resolveSupabaseConfig, warnMissingSupabaseConfig } from "./config"
 import { getSupabaseServerClientFactory } from "./factory"
 
 const middlewareWarnings = new Set<string>()
+let defaultSupabaseConfigNoticeLogged = false
 
 function logMiddlewareIssue(context: string, error: unknown) {
   if (process.env.NODE_ENV === "production") {
@@ -32,11 +33,24 @@ export async function updateSession(request: NextRequest) {
     request,
   })
 
-  const config = getSupabaseConfig()
+  const resolved = resolveSupabaseConfig()
 
-  if (!config) {
+  if (!resolved) {
     warnMissingSupabaseConfig("Skipping Supabase session refresh in middleware.")
     return supabaseResponse
+  }
+
+  const { config, sources } = resolved
+
+  if (
+    (sources.url === "default" || sources.anonKey === "default") &&
+    process.env.NODE_ENV !== "production" &&
+    !defaultSupabaseConfigNoticeLogged
+  ) {
+    console.info(
+      "Using bundled Supabase credentials in middleware. Override them by setting NEXT_PUBLIC_SUPABASE_URL and NEXT_PUBLIC_SUPABASE_ANON_KEY.",
+    )
+    defaultSupabaseConfigNoticeLogged = true
   }
 
   const factory = await getSupabaseServerClientFactory("middleware")

@@ -1,16 +1,31 @@
 import type { SupabaseClient } from "@supabase/supabase-js"
 import { cookies } from "next/headers"
-import { getSupabaseConfig, warnMissingSupabaseConfig } from "./config"
+import { resolveSupabaseConfig, warnMissingSupabaseConfig } from "./config"
 import { getSupabaseServerClientFactory } from "./factory"
 
-export async function createClient(): Promise<SupabaseClient | null> {
-  const config = getSupabaseConfig()
+let defaultSupabaseConfigNoticeLogged = false
 
-  if (!config) {
+export async function createClient(): Promise<SupabaseClient | null> {
+  const resolved = resolveSupabaseConfig()
+
+  if (!resolved) {
     warnMissingSupabaseConfig(
       "Server components cannot access Supabase until the environment variables are provided.",
     )
     return null
+  }
+
+  const { config, sources } = resolved
+
+  if (
+    (sources.url === "default" || sources.anonKey === "default") &&
+    process.env.NODE_ENV !== "production" &&
+    !defaultSupabaseConfigNoticeLogged
+  ) {
+    console.info(
+      "Using bundled Supabase credentials in server components. Override them by setting NEXT_PUBLIC_SUPABASE_URL and NEXT_PUBLIC_SUPABASE_ANON_KEY.",
+    )
+    defaultSupabaseConfigNoticeLogged = true
   }
 
   const factory = await getSupabaseServerClientFactory("server components")

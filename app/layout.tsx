@@ -2,6 +2,7 @@ import type React from "react"
 import type { Metadata } from "next"
 import { Suspense } from "react"
 import "./globals.css"
+import { DEFAULT_SUPABASE_CONFIG, resolveSupabaseConfig } from "@/lib/supabase/config"
 
 export const metadata: Metadata = {
   title: "AutoTest Pro - Test de Conducir Permiso B",
@@ -14,6 +15,8 @@ export default function RootLayout({
 }: Readonly<{
   children: React.ReactNode
 }>) {
+  const supabaseConfig = resolveSupabaseConfig()?.config ?? DEFAULT_SUPABASE_CONFIG
+
   return (
     <html lang="es">
       <body className="font-sans antialiased">
@@ -22,8 +25,8 @@ export default function RootLayout({
         <script
           dangerouslySetInnerHTML={{
             __html: `window.__env = ${JSON.stringify({
-              NEXT_PUBLIC_SUPABASE_URL: process.env.NEXT_PUBLIC_SUPABASE_URL ?? "",
-              NEXT_PUBLIC_SUPABASE_ANON_KEY: process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ?? "",
+              NEXT_PUBLIC_SUPABASE_URL: supabaseConfig.url,
+              NEXT_PUBLIC_SUPABASE_ANON_KEY: supabaseConfig.anonKey,
             })};`,
           }}
         />
